@@ -1,31 +1,1789 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Head from "next/head";
-import Header from "@/components/Header";
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  Users, 
+  Car, 
+  FileText, 
+  Calculator, 
+  CheckSquare, 
+  Calendar, 
+  Package, 
+  Settings,
+  Plus,
+  Search,
+  Bell,
+  Menu,
+  X,
+  Home,
+  Phone,
+  Mail,
+  MapPin,
+  DollarSign,
+  Clock,
+  Camera,
+  Download,
+  Send,
+  Eye,
+  Edit,
+  Trash2,
+  Filter,
+  BarChart3,
+  TrendingUp,
+  Star
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
-export default function Home() {
+// Types
+interface Customer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  createdAt: Date;
+}
+
+interface Vehicle {
+  id: string;
+  customerId: string;
+  make: string;
+  model: string;
+  year: number;
+  vin: string;
+  licensePlate: string;
+  color: string;
+}
+
+interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  stock: number;
+}
+
+interface Invoice {
+  id: string;
+  customerId: string;
+  vehicleId: string;
+  items: { productId: string; quantity: number; price: number }[];
+  subtotal: number;
+  tax: number;
+  total: number;
+  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  createdAt: Date;
+  dueDate: Date;
+}
+
+interface Appointment {
+  id: string;
+  customerId: string;
+  vehicleId: string;
+  date: Date;
+  time: string;
+  service: string;
+  status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';
+  notes: string;
+}
+
+interface ServiceCheckItem {
+  id: string;
+  name: string;
+  status: 'good' | 'needs-attention' | 'replace';
+  notes: string;
+  photos: string[];
+}
+
+interface ServiceCheck {
+  id: string;
+  customerId: string;
+  vehicleId: string;
+  items: ServiceCheckItem[];
+  createdAt: Date;
+  technician: string;
+}
+
+// Mock data
+const mockCustomers: Customer[] = [
+  {
+    id: '1',
+    name: 'John Smith',
+    email: 'john@example.com',
+    phone: '+1 (555) 123-4567',
+    address: '123 Main St, City, State 12345',
+    createdAt: new Date('2024-01-15')
+  },
+  {
+    id: '2',
+    name: 'Sarah Johnson',
+    email: 'sarah@example.com',
+    phone: '+1 (555) 987-6543',
+    address: '456 Oak Ave, City, State 12345',
+    createdAt: new Date('2024-02-20')
+  }
+];
+
+const mockVehicles: Vehicle[] = [
+  {
+    id: '1',
+    customerId: '1',
+    make: 'Toyota',
+    model: 'Camry',
+    year: 2020,
+    vin: '1HGBH41JXMN109186',
+    licensePlate: 'ABC123',
+    color: 'Silver'
+  },
+  {
+    id: '2',
+    customerId: '2',
+    make: 'Honda',
+    model: 'Civic',
+    year: 2019,
+    vin: '2HGFC2F59KH542891',
+    licensePlate: 'XYZ789',
+    color: 'Blue'
+  }
+];
+
+const mockProducts: Product[] = [
+  {
+    id: '1',
+    name: 'Oil Change Service',
+    description: 'Full synthetic oil change with filter',
+    price: 49.99,
+    category: 'Service',
+    stock: 100
+  },
+  {
+    id: '2',
+    name: 'Brake Pads',
+    description: 'Premium ceramic brake pads',
+    price: 89.99,
+    category: 'Parts',
+    stock: 25
+  },
+  {
+    id: '3',
+    name: 'Air Filter',
+    description: 'Engine air filter replacement',
+    price: 24.99,
+    category: 'Parts',
+    stock: 50
+  }
+];
+
+const mockAppointments: Appointment[] = [
+  {
+    id: '1',
+    customerId: '1',
+    vehicleId: '1',
+    date: new Date('2024-06-26'),
+    time: '10:00 AM',
+    service: 'Oil Change',
+    status: 'scheduled',
+    notes: 'Customer requested synthetic oil'
+  },
+  {
+    id: '2',
+    customerId: '2',
+    vehicleId: '2',
+    date: new Date('2024-06-27'),
+    time: '2:00 PM',
+    service: 'Brake Inspection',
+    status: 'scheduled',
+    notes: 'Customer reports squeaking noise'
+  }
+];
+
+export default function BusinessManagementApp() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(mockVehicles);
+  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const [selectedDate, setSelectedDate] = useState<Date>();
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Animation variants
+  const fadeInUp = {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -20 }
+  };
+
+  const staggerContainer = {
+    animate: {
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const sidebarItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: Home },
+    { id: 'customers', label: 'Customers', icon: Users },
+    { id: 'vehicles', label: 'Vehicles', icon: Car },
+    { id: 'appointments', label: 'Appointments', icon: Calendar },
+    { id: 'invoices', label: 'Invoices', icon: FileText },
+    { id: 'estimates', label: 'Estimates', icon: Calculator },
+    { id: 'service-checks', label: 'Service Checks', icon: CheckSquare },
+    { id: 'products', label: 'Products', icon: Package },
+    { id: 'website', label: 'Website', icon: Eye },
+    { id: 'settings', label: 'Settings', icon: Settings }
+  ];
+
+  const stats = [
+    { label: 'Total Customers', value: customers.length, icon: Users, color: 'text-blue-600' },
+    { label: 'Appointments Today', value: appointments.filter(apt => 
+      apt.date.toDateString() === new Date().toDateString()
+    ).length, icon: Calendar, color: 'text-green-600' },
+    { label: 'Pending Invoices', value: 5, icon: FileText, color: 'text-orange-600' },
+    { label: 'Monthly Revenue', value: '$12,450', icon: DollarSign, color: 'text-purple-600' }
+  ];
+
+  const Sidebar = () => (
+    <motion.div
+      initial={{ x: -300 }}
+      animate={{ x: 0 }}
+      exit={{ x: -300 }}
+      className="fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-50 lg:relative lg:translate-x-0"
+    >
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-bold text-primary">AutoPro</h1>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg:hidden"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        <nav className="space-y-2">
+          {sidebarItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Button
+                key={item.id}
+                variant={activeTab === item.id ? "default" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => {
+                  setActiveTab(item.id);
+                  setSidebarOpen(false);
+                }}
+              >
+                <Icon className="mr-2 h-4 w-4" />
+                {item.label}
+              </Button>
+            );
+          })}
+        </nav>
+      </div>
+    </motion.div>
+  );
+
+  const DashboardContent = () => (
+    <motion.div
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+      className="space-y-6"
+    >
+      <motion.div variants={fadeInUp}>
+        <h2 className="text-3xl font-bold text-primary mb-2">Dashboard</h2>
+        <p className="text-muted-foreground">Welcome back! Here's what's happening with your business.</p>
+      </motion.div>
+
+      <motion.div variants={fadeInUp} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <Card key={index} className="hover:bg-accent/50 transition-colors">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">{stat.label}</p>
+                    <p className="text-2xl font-bold text-primary">{stat.value}</p>
+                  </div>
+                  <Icon className={`h-8 w-8 ${stat.color}`} />
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </motion.div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <motion.div variants={fadeInUp}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Appointments</CardTitle>
+              <CardDescription>Upcoming appointments for today</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {appointments.slice(0, 3).map((appointment) => {
+                  const customer = customers.find(c => c.id === appointment.customerId);
+                  const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
+                  return (
+                    <div key={appointment.id} className="flex items-center space-x-4 p-3 rounded-lg bg-accent/20">
+                      <Avatar>
+                        <AvatarFallback>{customer?.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="font-medium">{customer?.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {vehicle?.year} {vehicle?.make} {vehicle?.model} - {appointment.service}
+                        </p>
+                        <p className="text-sm text-muted-foreground">{appointment.time}</p>
+                      </div>
+                      <Badge variant={appointment.status === 'scheduled' ? 'default' : 'secondary'}>
+                        {appointment.status}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={fadeInUp}>
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Common tasks and shortcuts</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <Button className="h-20 flex-col space-y-2" variant="outline">
+                  <Plus className="h-6 w-6" />
+                  <span>New Customer</span>
+                </Button>
+                <Button className="h-20 flex-col space-y-2" variant="outline">
+                  <Calendar className="h-6 w-6" />
+                  <span>Schedule</span>
+                </Button>
+                <Button className="h-20 flex-col space-y-2" variant="outline">
+                  <FileText className="h-6 w-6" />
+                  <span>Create Invoice</span>
+                </Button>
+                <Button className="h-20 flex-col space-y-2" variant="outline">
+                  <CheckSquare className="h-6 w-6" />
+                  <span>Service Check</span>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+
+  const CustomersContent = () => (
+    <motion.div
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+      className="space-y-6"
+    >
+      <motion.div variants={fadeInUp} className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold text-primary">Customers</h2>
+          <p className="text-muted-foreground">Manage your customer database</p>
+        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Customer
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add New Customer</DialogTitle>
+              <DialogDescription>Enter customer information below</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="name">Full Name</Label>
+                <Input id="name" placeholder="John Smith" />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" placeholder="john@example.com" />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input id="phone" placeholder="+1 (555) 123-4567" />
+              </div>
+              <div>
+                <Label htmlFor="address">Address</Label>
+                <Textarea id="address" placeholder="123 Main St, City, State 12345" />
+              </div>
+              <Button className="w-full">Add Customer</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </motion.div>
+
+      <motion.div variants={fadeInUp}>
+        <div className="flex space-x-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search customers..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Button variant="outline">
+            <Filter className="mr-2 h-4 w-4" />
+            Filter
+          </Button>
+        </div>
+
+        <div className="grid gap-4">
+          {customers.map((customer) => (
+            <Card key={customer.id} className="hover:bg-accent/50 transition-colors">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <Avatar className="h-12 w-12">
+                      <AvatarFallback className="text-lg">
+                        {customer.name.split(' ').map(n => n[0]).join('')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h3 className="font-semibold text-lg">{customer.name}</h3>
+                      <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                        <div className="flex items-center">
+                          <Mail className="mr-1 h-3 w-3" />
+                          {customer.email}
+                        </div>
+                        <div className="flex items-center">
+                          <Phone className="mr-1 h-3 w-3" />
+                          {customer.phone}
+                        </div>
+                      </div>
+                      <div className="flex items-center text-sm text-muted-foreground mt-1">
+                        <MapPin className="mr-1 h-3 w-3" />
+                        {customer.address}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+
+  const VehiclesContent = () => (
+    <motion.div
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+      className="space-y-6"
+    >
+      <motion.div variants={fadeInUp} className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold text-primary">Vehicles</h2>
+          <p className="text-muted-foreground">Manage customer vehicles</p>
+        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Vehicle
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add New Vehicle</DialogTitle>
+              <DialogDescription>Enter vehicle information below</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="customer-select">Customer</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select customer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="make">Make</Label>
+                  <Input id="make" placeholder="Toyota" />
+                </div>
+                <div>
+                  <Label htmlFor="model">Model</Label>
+                  <Input id="model" placeholder="Camry" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="year">Year</Label>
+                  <Input id="year" type="number" placeholder="2020" />
+                </div>
+                <div>
+                  <Label htmlFor="color">Color</Label>
+                  <Input id="color" placeholder="Silver" />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="vin">VIN</Label>
+                <Input id="vin" placeholder="1HGBH41JXMN109186" />
+              </div>
+              <div>
+                <Label htmlFor="license">License Plate</Label>
+                <Input id="license" placeholder="ABC123" />
+              </div>
+              <Button className="w-full">Add Vehicle</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </motion.div>
+
+      <motion.div variants={fadeInUp}>
+        <div className="grid gap-4">
+          {vehicles.map((vehicle) => {
+            const customer = customers.find(c => c.id === vehicle.customerId);
+            return (
+              <Card key={vehicle.id} className="hover:bg-accent/50 transition-colors">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <Car className="h-8 w-8 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">
+                          {vehicle.year} {vehicle.make} {vehicle.model}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">Owner: {customer?.name}</p>
+                        <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+                          <span>VIN: {vehicle.vin}</span>
+                          <span>Plate: {vehicle.licensePlate}</span>
+                          <span>Color: {vehicle.color}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+
+  const AppointmentsContent = () => (
+    <motion.div
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+      className="space-y-6"
+    >
+      <motion.div variants={fadeInUp} className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold text-primary">Appointments</h2>
+          <p className="text-muted-foreground">Schedule and manage appointments</p>
+        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Schedule Appointment
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Schedule New Appointment</DialogTitle>
+              <DialogDescription>Book a service appointment</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="apt-customer">Customer</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select customer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="apt-vehicle">Vehicle</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select vehicle" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vehicles.map((vehicle) => (
+                      <SelectItem key={vehicle.id} value={vehicle.id}>
+                        {vehicle.year} {vehicle.make} {vehicle.model}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="apt-service">Service Type</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select service" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="oil-change">Oil Change</SelectItem>
+                    <SelectItem value="brake-service">Brake Service</SelectItem>
+                    <SelectItem value="tire-rotation">Tire Rotation</SelectItem>
+                    <SelectItem value="inspection">General Inspection</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="apt-date">Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !selectedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <CalendarComponent
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <Label htmlFor="apt-time">Time</Label>
+                <Select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select time" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="08:00">8:00 AM</SelectItem>
+                    <SelectItem value="09:00">9:00 AM</SelectItem>
+                    <SelectItem value="10:00">10:00 AM</SelectItem>
+                    <SelectItem value="11:00">11:00 AM</SelectItem>
+                    <SelectItem value="13:00">1:00 PM</SelectItem>
+                    <SelectItem value="14:00">2:00 PM</SelectItem>
+                    <SelectItem value="15:00">3:00 PM</SelectItem>
+                    <SelectItem value="16:00">4:00 PM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="apt-notes">Notes</Label>
+                <Textarea id="apt-notes" placeholder="Special instructions or concerns..." />
+              </div>
+              <Button className="w-full">Schedule Appointment</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </motion.div>
+
+      <motion.div variants={fadeInUp}>
+        <div className="grid gap-4">
+          {appointments.map((appointment) => {
+            const customer = customers.find(c => c.id === appointment.customerId);
+            const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
+            return (
+              <Card key={appointment.id} className="hover:bg-accent/50 transition-colors">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
+                        <Calendar className="h-8 w-8 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">{appointment.service}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {customer?.name} - {vehicle?.year} {vehicle?.make} {vehicle?.model}
+                        </p>
+                        <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+                          <span>{format(appointment.date, "PPP")}</span>
+                          <span>{appointment.time}</span>
+                        </div>
+                        {appointment.notes && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Notes: {appointment.notes}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={appointment.status === 'scheduled' ? 'default' : 'secondary'}>
+                        {appointment.status}
+                      </Badge>
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+
+  const InvoicesContent = () => (
+    <motion.div
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+      className="space-y-6"
+    >
+      <motion.div variants={fadeInUp} className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold text-primary">Invoices</h2>
+          <p className="text-muted-foreground">Create and manage invoices</p>
+        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Invoice
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Invoice</DialogTitle>
+              <DialogDescription>Generate an invoice for services and parts</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="inv-customer">Customer</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="inv-vehicle">Vehicle</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select vehicle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicles.map((vehicle) => (
+                        <SelectItem key={vehicle.id} value={vehicle.id}>
+                          {vehicle.year} {vehicle.make} {vehicle.model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div>
+                <Label className="text-base font-semibold">Invoice Items</Label>
+                <div className="space-y-3 mt-2">
+                  {products.slice(0, 2).map((product) => (
+                    <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <p className="text-sm text-muted-foreground">{product.description}</p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Input type="number" placeholder="Qty" className="w-16" defaultValue="1" />
+                        <span className="font-semibold">${product.price}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button variant="outline" className="mt-3">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Item
+                </Button>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>$139.98</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tax (8.5%):</span>
+                    <span>$11.90</span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-lg">
+                    <span>Total:</span>
+                    <span>$151.88</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="inv-notes">Notes</Label>
+                  <Textarea id="inv-notes" placeholder="Additional notes or recommendations..." />
+                </div>
+                <div>
+                  <Label htmlFor="inv-due">Due Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !selectedDate && "text-muted-foreground"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {selectedDate ? format(selectedDate, "PPP") : "Pick due date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <CalendarComponent
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
+
+              <div className="flex space-x-2">
+                <Button className="flex-1">Create & Send Invoice</Button>
+                <Button variant="outline" className="flex-1">Save as Draft</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </motion.div>
+
+      <motion.div variants={fadeInUp}>
+        <div className="grid gap-4">
+          {[
+            { id: '1', customer: 'John Smith', total: '$151.88', status: 'paid', date: '2024-06-20' },
+            { id: '2', customer: 'Sarah Johnson', total: '$89.99', status: 'sent', date: '2024-06-22' },
+            { id: '3', customer: 'Mike Wilson', total: '$245.50', status: 'overdue', date: '2024-06-15' }
+          ].map((invoice) => (
+            <Card key={invoice.id} className="hover:bg-accent/50 transition-colors">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                      <FileText className="h-8 w-8 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Invoice #{invoice.id.padStart(4, '0')}</h3>
+                      <p className="text-sm text-muted-foreground">Customer: {invoice.customer}</p>
+                      <p className="text-sm text-muted-foreground">Date: {invoice.date}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-primary">{invoice.total}</p>
+                      <Badge variant={
+                        invoice.status === 'paid' ? 'default' : 
+                        invoice.status === 'overdue' ? 'destructive' : 'secondary'
+                      }>
+                        {invoice.status}
+                      </Badge>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button variant="outline" size="sm">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Send className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+
+  const ServiceChecksContent = () => (
+    <motion.div
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+      className="space-y-6"
+    >
+      <motion.div variants={fadeInUp} className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold text-primary">Service Checks</h2>
+          <p className="text-muted-foreground">Digital inspection forms with photo attachments</p>
+        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Service Check
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Create Service Check</DialogTitle>
+              <DialogDescription>Digital vehicle inspection form</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="sc-customer">Customer</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="sc-vehicle">Vehicle</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select vehicle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicles.map((vehicle) => (
+                        <SelectItem key={vehicle.id} value={vehicle.id}>
+                          {vehicle.year} {vehicle.make} {vehicle.model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-base font-semibold">Inspection Items</Label>
+                <div className="space-y-3 mt-2">
+                  {[
+                    'Engine Oil Level',
+                    'Brake Fluid',
+                    'Tire Condition',
+                    'Battery',
+                    'Air Filter',
+                    'Brake Pads',
+                    'Lights & Signals',
+                    'Belts & Hoses'
+                  ].map((item, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                      <span className="font-medium">{item}</span>
+                      <div className="flex items-center space-x-4">
+                        <Select>
+                          <SelectTrigger className="w-32">
+                            <SelectValue placeholder="Status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="good">Good</SelectItem>
+                            <SelectItem value="attention">Needs Attention</SelectItem>
+                            <SelectItem value="replace">Replace</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" size="sm">
+                          <Camera className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="sc-technician">Technician</Label>
+                <Input id="sc-technician" placeholder="Technician name" />
+              </div>
+
+              <div>
+                <Label htmlFor="sc-notes">Additional Notes</Label>
+                <Textarea id="sc-notes" placeholder="Overall vehicle condition, recommendations..." />
+              </div>
+
+              <div className="flex space-x-2">
+                <Button className="flex-1">Complete Service Check</Button>
+                <Button variant="outline" className="flex-1">Save Draft</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </motion.div>
+
+      <motion.div variants={fadeInUp}>
+        <div className="grid gap-4">
+          {[
+            { id: '1', customer: 'John Smith', vehicle: '2020 Toyota Camry', technician: 'Mike Johnson', date: '2024-06-25', status: 'completed' },
+            { id: '2', customer: 'Sarah Johnson', vehicle: '2019 Honda Civic', technician: 'Sarah Davis', date: '2024-06-24', status: 'in-progress' }
+          ].map((check) => (
+            <Card key={check.id} className="hover:bg-accent/50 transition-colors">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+                      <CheckSquare className="h-8 w-8 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Service Check #{check.id.padStart(4, '0')}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {check.customer} - {check.vehicle}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Technician: {check.technician} | Date: {check.date}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant={check.status === 'completed' ? 'default' : 'secondary'}>
+                      {check.status}
+                    </Badge>
+                    <Button variant="outline" size="sm">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+
+  const ProductsContent = () => (
+    <motion.div
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+      className="space-y-6"
+    >
+      <motion.div variants={fadeInUp} className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold text-primary">Products & Services</h2>
+          <p className="text-muted-foreground">Manage your inventory and service catalog</p>
+        </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Product
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add New Product/Service</DialogTitle>
+              <DialogDescription>Add items to your catalog</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="prod-name">Name</Label>
+                <Input id="prod-name" placeholder="Product or service name" />
+              </div>
+              <div>
+                <Label htmlFor="prod-description">Description</Label>
+                <Textarea id="prod-description" placeholder="Detailed description" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="prod-price">Price</Label>
+                  <Input id="prod-price" type="number" step="0.01" placeholder="0.00" />
+                </div>
+                <div>
+                  <Label htmlFor="prod-category">Category</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="service">Service</SelectItem>
+                      <SelectItem value="parts">Parts</SelectItem>
+                      <SelectItem value="fluids">Fluids</SelectItem>
+                      <SelectItem value="accessories">Accessories</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="prod-stock">Stock Quantity</Label>
+                <Input id="prod-stock" type="number" placeholder="0" />
+              </div>
+              <Button className="w-full">Add Product</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </motion.div>
+
+      <motion.div variants={fadeInUp}>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {products.map((product) => (
+            <Card key={product.id} className="hover:bg-accent/50 transition-colors">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
+                    <Package className="h-6 w-6 text-white" />
+                  </div>
+                  <Badge variant="outline">{product.category}</Badge>
+                </div>
+                <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
+                <p className="text-sm text-muted-foreground mb-4">{product.description}</p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-2xl font-bold text-primary">${product.price}</p>
+                    <p className="text-sm text-muted-foreground">Stock: {product.stock}</p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+
+  const WebsiteContent = () => (
+    <motion.div
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+      className="space-y-6"
+    >
+      <motion.div variants={fadeInUp}>
+        <h2 className="text-3xl font-bold text-primary mb-2">Website Frontend</h2>
+        <p className="text-muted-foreground">Customer-facing website with booking functionality</p>
+      </motion.div>
+
+      <motion.div variants={fadeInUp}>
+        <Tabs defaultValue="homepage" className="w-full">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="homepage">Homepage</TabsTrigger>
+            <TabsTrigger value="services">Services</TabsTrigger>
+            <TabsTrigger value="servicing">Servicing</TabsTrigger>
+            <TabsTrigger value="about">About</TabsTrigger>
+            <TabsTrigger value="contact">Contact</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="homepage" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Homepage Preview</CardTitle>
+                <CardDescription>Your customer-facing homepage</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-blue-950 dark:to-indigo-950 p-8 rounded-lg">
+                  <div className="text-center space-y-6">
+                    <img 
+                      src="https://images.unsplash.com/photo-1486754735734-325b5831c3ad?w=800&h=400&fit=crop" 
+                      alt="Auto Service" 
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                    <div>
+                      <h1 className="text-4xl font-bold text-primary mb-4">Professional Auto Service</h1>
+                      <p className="text-xl text-muted-foreground mb-6">
+                        Expert automotive care with state-of-the-art equipment and certified technicians
+                      </p>
+                      <div className="flex justify-center space-x-4">
+                        <Button size="lg">Book Service</Button>
+                        <Button variant="outline" size="lg">Learn More</Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="services" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Services Page</CardTitle>
+                <CardDescription>Showcase your automotive services</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[
+                    { name: 'Oil Change', price: '$49.99', image: 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?w=300&h=200&fit=crop' },
+                    { name: 'Brake Service', price: '$129.99', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=200&fit=crop' },
+                    { name: 'Tire Rotation', price: '$39.99', image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=300&h=200&fit=crop' }
+                  ].map((service, index) => (
+                    <Card key={index}>
+                      <CardContent className="p-4">
+                        <img src={service.image} alt={service.name} className="w-full h-32 object-cover rounded mb-4" />
+                        <h3 className="font-semibold text-lg">{service.name}</h3>
+                        <p className="text-2xl font-bold text-primary">{service.price}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="about" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>About Us Page</CardTitle>
+                <CardDescription>Tell your story and build trust</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <img 
+                    src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=800&h=300&fit=crop" 
+                    alt="Auto Shop Team" 
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                  <div className="space-y-4">
+                    <h3 className="text-2xl font-bold text-primary">Our Story</h3>
+                    <p className="text-muted-foreground">
+                      With over 20 years of experience in automotive service, AutoPro has been serving the community 
+                      with honest, reliable, and professional car care. Our certified technicians use the latest 
+                      diagnostic equipment and genuine parts to ensure your vehicle runs at its best.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Star className="h-8 w-8 text-blue-600" />
+                        </div>
+                        <h4 className="font-semibold mb-2">Expert Service</h4>
+                        <p className="text-sm text-muted-foreground">Certified technicians with years of experience</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <Clock className="h-8 w-8 text-green-600" />
+                        </div>
+                        <h4 className="font-semibold mb-2">Fast Turnaround</h4>
+                        <p className="text-sm text-muted-foreground">Quick and efficient service to get you back on the road</p>
+                      </div>
+                      <div className="text-center">
+                        <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <DollarSign className="h-8 w-8 text-purple-600" />
+                        </div>
+                        <h4 className="font-semibold mb-2">Fair Pricing</h4>
+                        <p className="text-sm text-muted-foreground">Transparent pricing with no hidden fees</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="servicing" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Servicing Information</CardTitle>
+                <CardDescription>Maintenance schedules and service intervals</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <img 
+                    src="https://images.unsplash.com/photo-1632823471565-1ecdf7a5e0b5?w=800&h=300&fit=crop" 
+                    alt="Car Maintenance" 
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">Regular Maintenance</h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center p-3 bg-accent/20 rounded-lg">
+                          <span>Oil Change</span>
+                          <span className="text-sm text-muted-foreground">Every 5,000 miles</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-accent/20 rounded-lg">
+                          <span>Tire Rotation</span>
+                          <span className="text-sm text-muted-foreground">Every 7,500 miles</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-accent/20 rounded-lg">
+                          <span>Brake Inspection</span>
+                          <span className="text-sm text-muted-foreground">Every 12,000 miles</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">Major Services</h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center p-3 bg-accent/20 rounded-lg">
+                          <span>Transmission Service</span>
+                          <span className="text-sm text-muted-foreground">Every 30,000 miles</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-accent/20 rounded-lg">
+                          <span>Coolant Flush</span>
+                          <span className="text-sm text-muted-foreground">Every 50,000 miles</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-accent/20 rounded-lg">
+                          <span>Timing Belt</span>
+                          <span className="text-sm text-muted-foreground">Every 60,000 miles</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="contact" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Contact & Booking Form</CardTitle>
+                <CardDescription>Customer booking interface</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-4">
+                    <h3 className="text-xl font-semibold">Book Your Service</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="customer-name">Full Name</Label>
+                        <Input id="customer-name" placeholder="Your name" />
+                      </div>
+                      <div>
+                        <Label htmlFor="customer-email">Email</Label>
+                        <Input id="customer-email" type="email" placeholder="your@email.com" />
+                      </div>
+                      <div>
+                        <Label htmlFor="customer-phone">Phone</Label>
+                        <Input id="customer-phone" placeholder="Your phone number" />
+                      </div>
+                      <div>
+                        <Label htmlFor="vehicle-info">Vehicle Information</Label>
+                        <Input id="vehicle-info" placeholder="Year Make Model" />
+                      </div>
+                      <div>
+                        <Label htmlFor="service-type">Service Needed</Label>
+                        <Select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select service" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="oil-change">Oil Change</SelectItem>
+                            <SelectItem value="brake-service">Brake Service</SelectItem>
+                            <SelectItem value="tire-rotation">Tire Rotation</SelectItem>
+                            <SelectItem value="inspection">General Inspection</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="preferred-date">Preferred Date</Label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !selectedDate && "text-muted-foreground"
+                              )}
+                            >
+                              <Calendar className="mr-2 h-4 w-4" />
+                              {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0">
+                            <CalendarComponent
+                              mode="single"
+                              selected={selectedDate}
+                              onSelect={setSelectedDate}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                      <div>
+                        <Label htmlFor="notes">Additional Notes</Label>
+                        <Textarea id="notes" placeholder="Any specific concerns or requests..." />
+                      </div>
+                      <Button className="w-full">Submit Booking Request</Button>
+                    </div>
+                  </div>
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">Contact Information</h3>
+                      <div className="space-y-3">
+                        <div className="flex items-center">
+                          <Phone className="mr-3 h-5 w-5 text-primary" />
+                          <span>+1 (555) 123-4567</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Mail className="mr-3 h-5 w-5 text-primary" />
+                          <span>info@autopro.com</span>
+                        </div>
+                        <div className="flex items-center">
+                          <MapPin className="mr-3 h-5 w-5 text-primary" />
+                          <span>123 Service St, Auto City, AC 12345</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Clock className="mr-3 h-5 w-5 text-primary" />
+                          <span>Mon-Fri: 8AM-6PM, Sat: 8AM-4PM</span>
+                        </div>
+                      </div>
+                    </div>
+                    <img 
+                      src="https://images.unsplash.com/photo-1619642751034-765dfdf7c58e?w=400&h=300&fit=crop" 
+                      alt="Auto Shop" 
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </motion.div>
+    </motion.div>
+  );
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <DashboardContent />;
+      case 'customers':
+        return <CustomersContent />;
+      case 'vehicles':
+        return <VehiclesContent />;
+      case 'appointments':
+        return <AppointmentsContent />;
+      case 'invoices':
+        return <InvoicesContent />;
+      case 'service-checks':
+        return <ServiceChecksContent />;
+      case 'products':
+        return <ProductsContent />;
+      case 'website':
+        return <WebsiteContent />;
+      case 'estimates':
+        return (
+          <motion.div
+            variants={fadeInUp}
+            initial="initial"
+            animate="animate"
+            className="space-y-6"
+          >
+            <div>
+              <h2 className="text-3xl font-bold text-primary mb-2">Estimates</h2>
+              <p className="text-muted-foreground">Create and manage service estimates</p>
+            </div>
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Calculator className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2">Estimates Feature</h3>
+                <p className="text-muted-foreground mb-4">
+                  Create professional estimates for potential customers. Similar to invoices but for pre-service quotes.
+                </p>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Estimate
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        );
+      case 'settings':
+        return (
+          <motion.div
+            variants={fadeInUp}
+            initial="initial"
+            animate="animate"
+            className="space-y-6"
+          >
+            <div>
+              <h2 className="text-3xl font-bold text-primary mb-2">Settings</h2>
+              <p className="text-muted-foreground">Configure your business settings and preferences</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Business Information</CardTitle>
+                  <CardDescription>Update your business details</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="business-name">Business Name</Label>
+                    <Input id="business-name" defaultValue="AutoPro Service Center" />
+                  </div>
+                  <div>
+                    <Label htmlFor="business-phone">Phone</Label>
+                    <Input id="business-phone" defaultValue="+1 (555) 123-4567" />
+                  </div>
+                  <div>
+                    <Label htmlFor="business-email">Email</Label>
+                    <Input id="business-email" defaultValue="info@autopro.com" />
+                  </div>
+                  <div>
+                    <Label htmlFor="business-address">Address</Label>
+                    <Textarea id="business-address" defaultValue="123 Service St, Auto City, AC 12345" />
+                  </div>
+                  <Button>Save Changes</Button>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Banking & Payment</CardTitle>
+                  <CardDescription>Configure payment and banking details</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="bank-name">Bank Name</Label>
+                    <Input id="bank-name" placeholder="First National Bank" />
+                  </div>
+                  <div>
+                    <Label htmlFor="account-number">Account Number</Label>
+                    <Input id="account-number" placeholder="****1234" />
+                  </div>
+                  <div>
+                    <Label htmlFor="routing-number">Routing Number</Label>
+                    <Input id="routing-number" placeholder="123456789" />
+                  </div>
+                  <div>
+                    <Label htmlFor="tax-rate">Tax Rate (%)</Label>
+                    <Input id="tax-rate" type="number" step="0.01" defaultValue="8.5" />
+                  </div>
+                  <Button>Update Banking Info</Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Notifications</CardTitle>
+                  <CardDescription>Configure email and SMS settings</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="smtp-server">SMTP Server</Label>
+                    <Input id="smtp-server" placeholder="smtp.gmail.com" />
+                  </div>
+                  <div>
+                    <Label htmlFor="sms-provider">SMS Provider</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select SMS provider" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="twilio">Twilio</SelectItem>
+                        <SelectItem value="nexmo">Nexmo</SelectItem>
+                        <SelectItem value="aws-sns">AWS SNS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button>Configure Notifications</Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Calendar Integration</CardTitle>
+                  <CardDescription>Connect with Google Calendar</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Sync appointments with Google Calendar for better scheduling management.
+                  </p>
+                  <Button>
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Connect Google Calendar
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </motion.div>
+        );
+      default:
+        return (
+          <motion.div
+            variants={fadeInUp}
+            initial="initial"
+            animate="animate"
+            className="flex items-center justify-center h-64"
+          >
+            <div className="text-center">
+              <h3 className="text-2xl font-semibold text-primary mb-2">
+                {sidebarItems.find(item => item.id === activeTab)?.label}
+              </h3>
+              <p className="text-muted-foreground">This section is under development</p>
+            </div>
+          </motion.div>
+        );
+    }
+  };
+
   return (
     <>
       <Head>
-        <title>Codev</title>
-        <meta name="description" content="Generated by Codev" />
+        <title>AutoPro - Business Management System</title>
+        <meta name="description" content="Complete automotive business management solution" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <div className="bg-background min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 flex flex-col items-center justify-center p-4">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle>Welcome to your app</CardTitle>
-              <CardDescription>Use the prompt to modify the page.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button className="w-full">Get Started</Button>
-            </CardContent>
-          </Card>
-        </main>
+      
+      <div className="bg-background min-h-screen flex">
+        {/* Mobile overlay */}
+        <AnimatePresence>
+          {sidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Sidebar */}
+        <div className={`${sidebarOpen ? 'block' : 'hidden'} lg:block`}>
+          <Sidebar />
+        </div>
+
+        {/* Main content */}
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <header className="bg-card border-b border-border p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="lg:hidden"
+                  onClick={() => setSidebarOpen(true)}
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+                <div>
+                  <h1 className="text-xl font-semibold text-primary">
+                    {sidebarItems.find(item => item.id === activeTab)?.label}
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date().toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <Button variant="ghost" size="sm">
+                  <Bell className="h-4 w-4" />
+                </Button>
+                <Avatar>
+                  <AvatarFallback>JD</AvatarFallback>
+                </Avatar>
+              </div>
+            </div>
+          </header>
+
+          {/* Content */}
+          <main className="flex-1 p-6 overflow-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                {renderContent()}
+              </motion.div>
+            </AnimatePresence>
+          </main>
+        </div>
       </div>
     </>
   );
