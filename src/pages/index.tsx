@@ -30,7 +30,10 @@ import {
   Filter,
   BarChart3,
   TrendingUp,
-  Star
+  Star,
+  CheckCircle,
+  AlertCircle,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -47,6 +50,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 
 // Types
 interface Customer {
@@ -221,6 +225,79 @@ export default function BusinessManagementApp() {
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Google Calendar integration
+  const {
+    isConnected: isCalendarConnected,
+    isLoading: isCalendarLoading,
+    error: calendarError,
+    connectToGoogle,
+    createCalendarEvent,
+    disconnect: disconnectCalendar,
+    checkConnectionStatus
+  } = useGoogleCalendar();
+
+  // Check for calendar connection status on URL params (after OAuth redirect)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('calendar_connected') === 'true') {
+      checkConnectionStatus();
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    if (urlParams.get('calendar_error')) {
+      console.error('Calendar connection error:', urlParams.get('calendar_error'));
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [checkConnectionStatus]);
+
+  // Function to handle appointment creation with calendar sync
+  const handleCreateAppointment = async (appointmentData: any) => {
+    try {
+      // Create appointment locally (in a real app, this would be an API call)
+      const newAppointment: Appointment = {
+        id: (appointments.length + 1).toString(),
+        customerId: appointmentData.customerId,
+        vehicleId: appointmentData.vehicleId,
+        date: appointmentData.date,
+        time: appointmentData.time,
+        service: appointmentData.service,
+        status: 'scheduled',
+        notes: appointmentData.notes || ''
+      };
+
+      setAppointments(prev => [...prev, newAppointment]);
+
+      // If calendar is connected, create calendar event
+      if (isCalendarConnected) {
+        const customer = customers.find(c => c.id === appointmentData.customerId);
+        const vehicle = vehicles.find(v => v.id === appointmentData.vehicleId);
+        
+        if (customer && vehicle) {
+          const startDateTime = new Date(appointmentData.date);
+          const [hours, minutes] = appointmentData.time.split(':');
+          startDateTime.setHours(parseInt(hours), parseInt(minutes));
+          
+          const endDateTime = new Date(startDateTime);
+          endDateTime.setHours(startDateTime.getHours() + 1); // 1 hour appointment
+
+          await createCalendarEvent({
+            summary: `${appointmentData.service} - ${customer.name}`,
+            description: `Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model}\nCustomer: ${customer.name}\nPhone: ${customer.phone}\nNotes: ${appointmentData.notes || 'None'}`,
+            startDateTime: startDateTime.toISOString(),
+            endDateTime: endDateTime.toISOString(),
+            customerEmail: customer.email
+          });
+        }
+      }
+
+      return newAppointment;
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+      throw error;
+    }
+  };
 
   // Animation variants
   const fadeInUp = {
@@ -1667,17 +1744,85 @@ export default function BusinessManagementApp() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Calendar Integration</CardTitle>
-                  <CardDescription>Connect with Google Calendar</CardDescription>
+                  <CardTitle>Google Calendar Integration</CardTitle>
+                  <CardDescription>Sync appointments with Google Calendar</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    {isCalendarConnected ? (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-orange-600" />
+                    )}
+                    <span className="text-sm font-medium">
+                      Status: {isCalendarConnected ? 'Connected' : 'Not Connected'}
+                    </span>
+                  </div>
+                  
                   <p className="text-sm text-muted-foreground">
-                    Sync appointments with Google Calendar for better scheduling management.
+                    {isCalendarConnected 
+                      ? 'Your appointments will automatically sync with Google Calendar. Customers will receive calendar invites when appointments are scheduled.'
+                      : 'Connect your Google Calendar to automatically sync appointments and send calendar invites to customers.'
+                    }
                   </p>
-                  <Button>
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Connect Google Calendar
-                  </Button>
+
+                  {calendarError && (
+                    <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                      <p className="text-sm text-destructive">{calendarError}</p>
+                    </div>
+                  )}
+
+                  <div className="flex space-x-2">
+                    {isCalendarConnected ? (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          onClick={disconnectCalendar}
+                          disabled={isCalendarLoading}
+                        >
+                          <X className="mr-2 h-4 w-4" />
+                          Disconnect
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          onClick={checkConnectionStatus}
+                          disabled={isCalendarLoading}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          Test Connection
+                        </Button>
+                      </>
+                    ) : (
+                      <Button 
+                        onClick={connectToGoogle}
+                        disabled={isCalendarLoading}
+                      >
+                        {isCalendarLoading ? (
+                          <>
+                            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            Connecting...
+                          </>
+                        ) : (
+                          <>
+                            <Calendar className="mr-2 h-4 w-4" />
+                            Connect Google Calendar
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+
+                  {isCalendarConnected && (
+                    <div className="mt-4 p-3 bg-accent/20 rounded-lg">
+                      <h4 className="text-sm font-semibold mb-2">Calendar Features:</h4>
+                      <ul className="text-sm text-muted-foreground space-y-1">
+                        <li>• Automatic appointment sync</li>
+                        <li>• Customer email invitations</li>
+                        <li>• Appointment reminders</li>
+                        <li>• Real-time calendar updates</li>
+                      </ul>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
