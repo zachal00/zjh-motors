@@ -109,6 +109,24 @@ interface Invoice {
   serviceCheckId?: string;
 }
 
+interface Estimate {
+  id: string;
+  estimateNumber: string;
+  customerId: string;
+  vehicleId: string;
+  items: InvoiceItem[];
+  subtotal: number;
+  tax: number;
+  taxRate: number;
+  total: number;
+  status: 'draft' | 'sent' | 'approved' | 'declined' | 'expired';
+  createdAt: Date;
+  validUntil: Date;
+  notes: string;
+  convertedToInvoice?: boolean;
+  invoiceId?: string;
+}
+
 interface Appointment {
   id: string;
   customerId: string;
@@ -334,6 +352,7 @@ export default function BusinessManagementApp() {
   const [products, setProducts] = useState<Product[]>(mockProducts);
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
   const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
+  const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentInvoice, setCurrentInvoice] = useState<Partial<Invoice> | null>(null);
@@ -419,6 +438,91 @@ export default function BusinessManagementApp() {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const invoiceCount = invoices.length + 1;
     return `INV-${year}${month}-${String(invoiceCount).padStart(4, '0')}`;
+  };
+
+  // Estimate management functions
+  const generateEstimateNumber = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const estimateCount = estimates.length + 1;
+    return `EST-${year}${month}-${String(estimateCount).padStart(4, '0')}`;
+  };
+
+  const createEstimate = (estimateData: Partial<Estimate>) => {
+    const newEstimate: Estimate = {
+      id: (estimates.length + 1).toString(),
+      estimateNumber: generateEstimateNumber(),
+      customerId: estimateData.customerId || '',
+      vehicleId: estimateData.vehicleId || '',
+      items: estimateData.items || [],
+      subtotal: 0,
+      tax: 0,
+      taxRate: 8.5,
+      total: 0,
+      status: 'draft',
+      createdAt: new Date(),
+      validUntil: estimateData.validUntil || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      notes: estimateData.notes || '',
+      convertedToInvoice: false
+    };
+
+    // Calculate totals
+    const totals = calculateInvoiceTotals(newEstimate.items, newEstimate.taxRate);
+    newEstimate.subtotal = totals.subtotal;
+    newEstimate.tax = totals.tax;
+    newEstimate.total = totals.total;
+
+    setEstimates(prev => [...prev, newEstimate]);
+    return newEstimate;
+  };
+
+  const updateEstimateStatus = (estimateId: string, status: Estimate['status']) => {
+    setEstimates(prev => prev.map(estimate => 
+      estimate.id === estimateId ? { ...estimate, status } : estimate
+    ));
+  };
+
+  const convertEstimateToInvoice = (estimate: Estimate) => {
+    const newInvoice = createInvoice({
+      customerId: estimate.customerId,
+      vehicleId: estimate.vehicleId,
+      items: estimate.items,
+      notes: `Converted from estimate ${estimate.estimateNumber}. ${estimate.notes}`,
+      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    });
+
+    // Mark estimate as converted
+    setEstimates(prev => prev.map(est => 
+      est.id === estimate.id 
+        ? { ...est, convertedToInvoice: true, invoiceId: newInvoice.id, status: 'approved' }
+        : est
+    ));
+
+    return newInvoice;
+  };
+
+  const sendEstimateEmail = async (estimate: Estimate) => {
+    try {
+      const customer = customers.find(c => c.id === estimate.customerId);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      // In a real implementation, this would call an email API
+      console.log(`Sending estimate ${estimate.estimateNumber} to ${customer.email}`);
+      
+      // Simulate email sending delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Update estimate status to sent
+      updateEstimateStatus(estimate.id, 'sent');
+      
+      return true;
+    } catch (error) {
+      console.error('Error sending estimate email:', error);
+      throw error;
+    }
   };
 
   const calculateInvoiceTotals = (items: InvoiceItem[], taxRate: number = 8.5) => {
@@ -1803,6 +1907,480 @@ export default function BusinessManagementApp() {
     </motion.div>
   );
 
+  const EstimatesContent = () => {
+    const [selectedCustomerId, setSelectedCustomerId] = useState('');
+    const [selectedVehicleId, setSelectedVehicleId] = useState('');
+    const [estimateItems, setEstimateItems] = useState<InvoiceItem[]>([]);
+    const [estimateNotes, setEstimateNotes] = useState('');
+    const [estimateValidUntil, setEstimateValidUntil] = useState<Date>();
+    const [isCreating, setIsCreating] = useState(false);
+    const [isSending, setIsSending] = useState(false);
+    const [isConverting, setIsConverting] = useState(false);
+
+    const addEstimateItem = (product: Product, quantity: number = 1) => {
+      const existingItem = estimateItems.find(item => item.productId === product.id);
+      
+      if (existingItem) {
+        setEstimateItems(prev => prev.map(item => 
+          item.productId === product.id 
+            ? { ...item, quantity: item.quantity + quantity, total: (item.quantity + quantity) * item.price }
+            : item
+        ));
+      } else {
+        const newItem: InvoiceItem = {
+          id: `item-${Date.now()}`,
+          productId: product.id,
+          name: product.name,
+          description: product.description,
+          quantity,
+          price: product.price,
+          total: product.price * quantity
+        };
+        setEstimateItems(prev => [...prev, newItem]);
+      }
+    };
+
+    const removeEstimateItem = (itemId: string) => {
+      setEstimateItems(prev => prev.filter(item => item.id !== itemId));
+    };
+
+    const updateItemQuantity = (itemId: string, quantity: number) => {
+      setEstimateItems(prev => prev.map(item => 
+        item.id === itemId 
+          ? { ...item, quantity, total: quantity * item.price }
+          : item
+      ));
+    };
+
+    const resetEstimateForm = () => {
+      setSelectedCustomerId('');
+      setSelectedVehicleId('');
+      setEstimateItems([]);
+      setEstimateNotes('');
+      setEstimateValidUntil(undefined);
+    };
+
+    const handleCreateEstimate = async (sendImmediately: boolean = false) => {
+      if (!selectedCustomerId || !selectedVehicleId || estimateItems.length === 0) {
+        alert('Please fill in all required fields and add at least one item.');
+        return;
+      }
+
+      setIsCreating(true);
+      try {
+        const newEstimate = createEstimate({
+          customerId: selectedCustomerId,
+          vehicleId: selectedVehicleId,
+          items: estimateItems,
+          notes: estimateNotes,
+          validUntil: estimateValidUntil
+        });
+
+        if (sendImmediately) {
+          setIsSending(true);
+          await sendEstimateEmail(newEstimate);
+        }
+
+        resetEstimateForm();
+        alert(`Estimate ${newEstimate.estimateNumber} ${sendImmediately ? 'created and sent' : 'created'} successfully!`);
+      } catch (error) {
+        console.error('Error creating estimate:', error);
+        alert('Error creating estimate. Please try again.');
+      } finally {
+        setIsCreating(false);
+        setIsSending(false);
+      }
+    };
+
+    const handleConvertToInvoice = async (estimate: Estimate) => {
+      setIsConverting(true);
+      try {
+        const newInvoice = convertEstimateToInvoice(estimate);
+        alert(`Estimate ${estimate.estimateNumber} converted to invoice ${newInvoice.invoiceNumber} successfully!`);
+      } catch (error) {
+        console.error('Error converting estimate:', error);
+        alert('Error converting estimate to invoice. Please try again.');
+      } finally {
+        setIsConverting(false);
+      }
+    };
+
+    const handleSendEstimateEmail = async (estimate: Estimate) => {
+      setIsSending(true);
+      try {
+        await sendEstimateEmail(estimate);
+        alert('Estimate sent successfully!');
+      } catch (error) {
+        console.error('Error sending estimate:', error);
+        alert('Error sending estimate. Please try again.');
+      } finally {
+        setIsSending(false);
+      }
+    };
+
+    const filteredVehicles = vehicles.filter(vehicle => vehicle.customerId === selectedCustomerId);
+    const totals = calculateInvoiceTotals(estimateItems);
+
+    return (
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="space-y-6"
+      >
+        <motion.div variants={fadeInUp} className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold text-primary">Estimates</h2>
+            <p className="text-muted-foreground">Create and manage service estimates</p>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Estimate
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Estimate</DialogTitle>
+                <DialogDescription>Generate an estimate for potential services and parts</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6">
+                {/* Customer and Vehicle Selection */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="est-customer">Customer *</Label>
+                    <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="est-vehicle">Vehicle *</Label>
+                    <Select 
+                      value={selectedVehicleId} 
+                      onValueChange={setSelectedVehicleId}
+                      disabled={!selectedCustomerId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select vehicle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredVehicles.map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id}>
+                            {vehicle.year} {vehicle.make} {vehicle.model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                {/* Estimate Items */}
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <Label className="text-base font-semibold">Estimate Items *</Label>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Item
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Add Estimate Item</DialogTitle>
+                          <DialogDescription>Select products or services to add to the estimate</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 max-h-96 overflow-y-auto">
+                          {products.map((product) => (
+                            <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50">
+                              <div className="flex-1">
+                                <h4 className="font-medium">{product.name}</h4>
+                                <p className="text-sm text-muted-foreground">{product.description}</p>
+                                <p className="text-sm font-semibold text-primary">${product.price}</p>
+                              </div>
+                              <Button 
+                                size="sm" 
+                                onClick={() => addEstimateItem(product)}
+                              >
+                                Add
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  
+                  {estimateItems.length > 0 ? (
+                    <div className="space-y-3">
+                      {estimateItems.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-muted-foreground">{item.description}</p>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
+                              <Label className="text-sm">Qty:</Label>
+                              <Input 
+                                type="number" 
+                                value={item.quantity}
+                                onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
+                                className="w-16" 
+                                min="1"
+                              />
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-muted-foreground">${item.price} each</p>
+                              <p className="font-semibold">${item.total.toFixed(2)}</p>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => removeEstimateItem(item.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No items added yet. Click "Add Item" to get started.
+                    </div>
+                  )}
+                </div>
+
+                {/* Estimate Totals */}
+                {estimateItems.length > 0 && (
+                  <div className="border-t pt-4">
+                    <div className="space-y-2 max-w-sm ml-auto">
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>${totals.subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Tax (8.5%):</span>
+                        <span>${totals.tax.toFixed(2)}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between font-semibold text-lg">
+                        <span>Total:</span>
+                        <span>${totals.total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Information */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="est-notes">Notes & Recommendations</Label>
+                    <Textarea 
+                      id="est-notes" 
+                      placeholder="Additional notes, recommendations, or terms..."
+                      value={estimateNotes}
+                      onChange={(e) => setEstimateNotes(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="est-valid">Valid Until</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !estimateValidUntil && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {estimateValidUntil ? format(estimateValidUntil, "PPP") : "Pick valid until date (default: 30 days)"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={estimateValidUntil}
+                          onSelect={setEstimateValidUntil}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-2">
+                  <Button 
+                    className="flex-1" 
+                    onClick={() => handleCreateEstimate(true)}
+                    disabled={isCreating || isSending}
+                  >
+                    {isSending ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Create & Send Estimate
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => handleCreateEstimate(false)}
+                    disabled={isCreating || isSending}
+                  >
+                    {isCreating ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Save as Draft'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </motion.div>
+
+        {/* Estimate List */}
+        <motion.div variants={fadeInUp}>
+          <div className="flex space-x-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search estimates..."
+                className="pl-10"
+              />
+            </div>
+            <Select defaultValue="all">
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="sent">Sent</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="declined">Declined</SelectItem>
+                <SelectItem value="expired">Expired</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-4">
+            {estimates.length > 0 ? (
+              estimates.map((estimate) => {
+                const customer = customers.find(c => c.id === estimate.customerId);
+                const vehicle = vehicles.find(v => v.id === estimate.vehicleId);
+                
+                return (
+                  <Card key={estimate.id} className="hover:bg-accent/50 transition-colors">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-teal-600 rounded-lg flex items-center justify-center">
+                            <Calculator className="h-8 w-8 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-lg">{estimate.estimateNumber}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {customer?.name} - {vehicle?.year} {vehicle?.make} {vehicle?.model}
+                            </p>
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+                              <span>Created: {format(estimate.createdAt, "MMM dd, yyyy")}</span>
+                              <span>Valid Until: {format(estimate.validUntil, "MMM dd, yyyy")}</span>
+                            </div>
+                            {estimate.convertedToInvoice && (
+                              <p className="text-sm text-green-600 mt-1">
+                                ✓ Converted to Invoice
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-primary">${estimate.total.toFixed(2)}</p>
+                            <Badge variant={
+                              estimate.status === 'approved' ? 'default' : 
+                              estimate.status === 'declined' ? 'destructive' : 
+                              estimate.status === 'expired' ? 'destructive' :
+                              estimate.status === 'sent' ? 'secondary' : 'outline'
+                            }>
+                              {estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}
+                            </Badge>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleSendEstimateEmail(estimate)}
+                              disabled={isSending || estimate.convertedToInvoice}
+                            >
+                              <Send className="h-4 w-4" />
+                            </Button>
+                            {estimate.status === 'approved' && !estimate.convertedToInvoice && (
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleConvertToInvoice(estimate)}
+                                disabled={isConverting}
+                              >
+                                <FileText className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Calculator className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">No Estimates Yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Create your first estimate to provide quotes to potential customers.
+                  </p>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create First Estimate
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </motion.div>
+      </motion.div>
+    );
+  };
+
   const WebsiteContent = () => (
     <motion.div
       variants={staggerContainer}
@@ -2113,32 +2691,7 @@ export default function BusinessManagementApp() {
       case 'website':
         return <WebsiteContent />;
       case 'estimates':
-        return (
-          <motion.div
-            variants={fadeInUp}
-            initial="initial"
-            animate="animate"
-            className="space-y-6"
-          >
-            <div>
-              <h2 className="text-3xl font-bold text-primary mb-2">Estimates</h2>
-              <p className="text-muted-foreground">Create and manage service estimates</p>
-            </div>
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Calculator className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">Estimates Feature</h3>
-                <p className="text-muted-foreground mb-4">
-                  Create professional estimates for potential customers. Similar to invoices but for pre-service quotes.
-                </p>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Estimate
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        );
+        return <EstimatesContent />;
       case 'settings':
         return (
           <motion.div
