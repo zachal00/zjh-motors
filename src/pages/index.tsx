@@ -792,115 +792,552 @@ export default function BusinessManagementApp() {
     </motion.div>
   );
 
-  const CustomersContent = () => (
-    <motion.div
-      variants={staggerContainer}
-      initial="initial"
-      animate="animate"
-      className="space-y-6"
-    >
-      <motion.div variants={fadeInUp} className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold text-primary">Customers</h2>
-          <p className="text-muted-foreground">Manage your customer database</p>
-        </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Customer
-            </Button>
-          </DialogTrigger>
+  const CustomersContent = () => {
+    const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', address: '' });
+    const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+    const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+    const [customerFilter, setCustomerFilter] = useState('all');
+
+    const filteredCustomers = customers.filter(customer => {
+      const matchesSearch = customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           customer.phone.includes(searchTerm);
+      
+      if (customerFilter === 'recent') {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        return matchesSearch && customer.createdAt >= thirtyDaysAgo;
+      }
+      
+      return matchesSearch;
+    });
+
+    const handleAddCustomer = () => {
+      if (!newCustomer.name || !newCustomer.email || !newCustomer.phone) {
+        alert('Please fill in all required fields.');
+        return;
+      }
+
+      const customer: Customer = {
+        id: (customers.length + 1).toString(),
+        name: newCustomer.name,
+        email: newCustomer.email,
+        phone: newCustomer.phone,
+        address: newCustomer.address,
+        createdAt: new Date()
+      };
+
+      setCustomers(prev => [...prev, customer]);
+      setNewCustomer({ name: '', email: '', phone: '', address: '' });
+      setIsAddDialogOpen(false);
+      alert('Customer added successfully!');
+    };
+
+    const handleEditCustomer = () => {
+      if (!editingCustomer || !editingCustomer.name || !editingCustomer.email || !editingCustomer.phone) {
+        alert('Please fill in all required fields.');
+        return;
+      }
+
+      setCustomers(prev => prev.map(customer => 
+        customer.id === editingCustomer.id ? editingCustomer : customer
+      ));
+      setEditingCustomer(null);
+      setIsEditDialogOpen(false);
+      alert('Customer updated successfully!');
+    };
+
+    const handleDeleteCustomer = (customerId: string) => {
+      if (confirm('Are you sure you want to delete this customer? This action cannot be undone.')) {
+        // Check if customer has associated vehicles or appointments
+        const hasVehicles = vehicles.some(v => v.customerId === customerId);
+        const hasAppointments = appointments.some(a => a.customerId === customerId);
+        const hasInvoices = invoices.some(i => i.customerId === customerId);
+
+        if (hasVehicles || hasAppointments || hasInvoices) {
+          alert('Cannot delete customer with existing vehicles, appointments, or invoices. Please remove associated records first.');
+          return;
+        }
+
+        setCustomers(prev => prev.filter(customer => customer.id !== customerId));
+        alert('Customer deleted successfully!');
+      }
+    };
+
+    const getCustomerStats = (customerId: string) => {
+      const customerVehicles = vehicles.filter(v => v.customerId === customerId);
+      const customerAppointments = appointments.filter(a => a.customerId === customerId);
+      const customerInvoices = invoices.filter(i => i.customerId === customerId);
+      const totalSpent = customerInvoices
+        .filter(i => i.status === 'paid')
+        .reduce((sum, i) => sum + i.total, 0);
+
+      return {
+        vehicleCount: customerVehicles.length,
+        appointmentCount: customerAppointments.length,
+        invoiceCount: customerInvoices.length,
+        totalSpent,
+        lastVisit: customerAppointments.length > 0 
+          ? new Date(Math.max(...customerAppointments.map(a => a.date.getTime())))
+          : null
+      };
+    };
+
+    return (
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="space-y-6"
+      >
+        <motion.div variants={fadeInUp} className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold text-primary">Customers</h2>
+            <p className="text-muted-foreground">Manage your customer database</p>
+          </div>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Customer
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add New Customer</DialogTitle>
+                <DialogDescription>Enter customer information below</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="add-name">Full Name *</Label>
+                  <Input 
+                    id="add-name" 
+                    placeholder="John Smith" 
+                    value={newCustomer.name}
+                    onChange={(e) => setNewCustomer(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="add-email">Email *</Label>
+                  <Input 
+                    id="add-email" 
+                    type="email" 
+                    placeholder="john@example.com" 
+                    value={newCustomer.email}
+                    onChange={(e) => setNewCustomer(prev => ({ ...prev, email: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="add-phone">Phone *</Label>
+                  <Input 
+                    id="add-phone" 
+                    placeholder="+1 (555) 123-4567" 
+                    value={newCustomer.phone}
+                    onChange={(e) => setNewCustomer(prev => ({ ...prev, phone: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="add-address">Address</Label>
+                  <Textarea 
+                    id="add-address" 
+                    placeholder="123 Main St, City, State 12345" 
+                    value={newCustomer.address}
+                    onChange={(e) => setNewCustomer(prev => ({ ...prev, address: e.target.value }))}
+                  />
+                </div>
+                <div className="flex space-x-2">
+                  <Button className="flex-1" onClick={handleAddCustomer}>Add Customer</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </motion.div>
+
+        <motion.div variants={fadeInUp}>
+          <div className="flex space-x-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search customers by name, email, or phone..."
+                className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={customerFilter} onValueChange={setCustomerFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Filter customers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Customers</SelectItem>
+                <SelectItem value="recent">Recent (30 days)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-4">
+            {filteredCustomers.length > 0 ? (
+              filteredCustomers.map((customer) => {
+                const stats = getCustomerStats(customer.id);
+                return (
+                  <Card key={customer.id} className="hover:bg-accent/50 transition-colors">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <Avatar className="h-12 w-12">
+                            <AvatarFallback className="text-lg">
+                              {customer.name.split(' ').map(n => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg">{customer.name}</h3>
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                              <div className="flex items-center">
+                                <Mail className="mr-1 h-3 w-3" />
+                                {customer.email}
+                              </div>
+                              <div className="flex items-center">
+                                <Phone className="mr-1 h-3 w-3" />
+                                {customer.phone}
+                              </div>
+                            </div>
+                            <div className="flex items-center text-sm text-muted-foreground mt-1">
+                              <MapPin className="mr-1 h-3 w-3" />
+                              {customer.address || 'No address provided'}
+                            </div>
+                            <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-2">
+                              <span>{stats.vehicleCount} vehicle{stats.vehicleCount !== 1 ? 's' : ''}</span>
+                              <span>{stats.appointmentCount} appointment{stats.appointmentCount !== 1 ? 's' : ''}</span>
+                              <span>${stats.totalSpent.toFixed(2)} total spent</span>
+                              {stats.lastVisit && (
+                                <span>Last visit: {format(stats.lastVisit, "MMM dd, yyyy")}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setViewingCustomer(customer);
+                              setIsViewDialogOpen(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setEditingCustomer({ ...customer });
+                              setIsEditDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleDeleteCustomer(customer.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">
+                    {searchTerm ? 'No customers found' : 'No customers yet'}
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    {searchTerm 
+                      ? 'Try adjusting your search terms or filters.'
+                      : 'Add your first customer to get started with managing your business.'
+                    }
+                  </p>
+                  {!searchTerm && (
+                    <Button onClick={() => setIsAddDialogOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add First Customer
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Edit Customer Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Add New Customer</DialogTitle>
-              <DialogDescription>Enter customer information below</DialogDescription>
+              <DialogTitle>Edit Customer</DialogTitle>
+              <DialogDescription>Update customer information</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" placeholder="John Smith" />
+            {editingCustomer && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="edit-name">Full Name *</Label>
+                  <Input 
+                    id="edit-name" 
+                    value={editingCustomer.name}
+                    onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, name: e.target.value } : null)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-email">Email *</Label>
+                  <Input 
+                    id="edit-email" 
+                    type="email" 
+                    value={editingCustomer.email}
+                    onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, email: e.target.value } : null)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-phone">Phone *</Label>
+                  <Input 
+                    id="edit-phone" 
+                    value={editingCustomer.phone}
+                    onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, phone: e.target.value } : null)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-address">Address</Label>
+                  <Textarea 
+                    id="edit-address" 
+                    value={editingCustomer.address}
+                    onChange={(e) => setEditingCustomer(prev => prev ? { ...prev, address: e.target.value } : null)}
+                  />
+                </div>
+                <div className="flex space-x-2">
+                  <Button className="flex-1" onClick={handleEditCustomer}>Save Changes</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="john@example.com" />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* View Customer Dialog */}
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Customer Details</DialogTitle>
+              <DialogDescription>Complete customer information and history</DialogDescription>
+            </DialogHeader>
+            {viewingCustomer && (
+              <div className="space-y-6">
+                {/* Customer Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback>
+                            {viewingCustomer.name.split(' ').map(n => n[0]).join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{viewingCustomer.name}</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span>{viewingCustomer.email}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span>{viewingCustomer.phone}</span>
+                      </div>
+                      <div className="flex items-start space-x-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                        <span>{viewingCustomer.address || 'No address provided'}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>Customer since {format(viewingCustomer.createdAt, "MMMM dd, yyyy")}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Customer Statistics</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const stats = getCustomerStats(viewingCustomer.id);
+                        return (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center p-3 bg-accent/20 rounded-lg">
+                              <p className="text-2xl font-bold text-primary">{stats.vehicleCount}</p>
+                              <p className="text-sm text-muted-foreground">Vehicle{stats.vehicleCount !== 1 ? 's' : ''}</p>
+                            </div>
+                            <div className="text-center p-3 bg-accent/20 rounded-lg">
+                              <p className="text-2xl font-bold text-primary">{stats.appointmentCount}</p>
+                              <p className="text-sm text-muted-foreground">Appointment{stats.appointmentCount !== 1 ? 's' : ''}</p>
+                            </div>
+                            <div className="text-center p-3 bg-accent/20 rounded-lg">
+                              <p className="text-2xl font-bold text-primary">{stats.invoiceCount}</p>
+                              <p className="text-sm text-muted-foreground">Invoice{stats.invoiceCount !== 1 ? 's' : ''}</p>
+                            </div>
+                            <div className="text-center p-3 bg-accent/20 rounded-lg">
+                              <p className="text-2xl font-bold text-primary">${stats.totalSpent.toFixed(2)}</p>
+                              <p className="text-sm text-muted-foreground">Total Spent</p>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Customer Vehicles */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Vehicles</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const customerVehicles = vehicles.filter(v => v.customerId === viewingCustomer.id);
+                      return customerVehicles.length > 0 ? (
+                        <div className="grid gap-3">
+                          {customerVehicles.map((vehicle) => (
+                            <div key={vehicle.id} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                                  <Car className="h-5 w-5 text-white" />
+                                </div>
+                                <div>
+                                  <p className="font-medium">{vehicle.year} {vehicle.make} {vehicle.model}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {vehicle.color} • {vehicle.licensePlate} • VIN: {vehicle.vin}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-center py-4">No vehicles registered</p>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                {/* Recent Appointments */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recent Appointments</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const customerAppointments = appointments
+                        .filter(a => a.customerId === viewingCustomer.id)
+                        .sort((a, b) => b.date.getTime() - a.date.getTime())
+                        .slice(0, 5);
+                      
+                      return customerAppointments.length > 0 ? (
+                        <div className="space-y-3">
+                          {customerAppointments.map((appointment) => {
+                            const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
+                            return (
+                              <div key={appointment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                <div>
+                                  <p className="font-medium">{appointment.service}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {vehicle?.year} {vehicle?.make} {vehicle?.model} • {format(appointment.date, "MMM dd, yyyy")} at {appointment.time}
+                                  </p>
+                                </div>
+                                <Badge variant={appointment.status === 'completed' ? 'default' : 'secondary'}>
+                                  {appointment.status}
+                                </Badge>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-center py-4">No appointments found</p>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                {/* Recent Invoices */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Recent Invoices</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const customerInvoices = invoices
+                        .filter(i => i.customerId === viewingCustomer.id)
+                        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+                        .slice(0, 5);
+                      
+                      return customerInvoices.length > 0 ? (
+                        <div className="space-y-3">
+                          {customerInvoices.map((invoice) => (
+                            <div key={invoice.id} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div>
+                                <p className="font-medium">{invoice.invoiceNumber}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {format(invoice.createdAt, "MMM dd, yyyy")} • Due: {format(invoice.dueDate, "MMM dd, yyyy")}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-semibold">${invoice.total.toFixed(2)}</p>
+                                <Badge variant={
+                                  invoice.status === 'paid' ? 'default' : 
+                                  invoice.status === 'overdue' ? 'destructive' : 'secondary'
+                                }>
+                                  {invoice.status}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground text-center py-4">No invoices found</p>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setEditingCustomer({ ...viewingCustomer });
+                      setIsViewDialogOpen(false);
+                      setIsEditDialogOpen(true);
+                    }}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Customer
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" placeholder="+1 (555) 123-4567" />
-              </div>
-              <div>
-                <Label htmlFor="address">Address</Label>
-                <Textarea id="address" placeholder="123 Main St, City, State 12345" />
-              </div>
-              <Button className="w-full">Add Customer</Button>
-            </div>
+            )}
           </DialogContent>
         </Dialog>
       </motion.div>
-
-      <motion.div variants={fadeInUp}>
-        <div className="flex space-x-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search customers..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <Button variant="outline">
-            <Filter className="mr-2 h-4 w-4" />
-            Filter
-          </Button>
-        </div>
-
-        <div className="grid gap-4">
-          {customers.map((customer) => (
-            <Card key={customer.id} className="hover:bg-accent/50 transition-colors">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className="text-lg">
-                        {customer.name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-semibold text-lg">{customer.name}</h3>
-                      <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                        <div className="flex items-center">
-                          <Mail className="mr-1 h-3 w-3" />
-                          {customer.email}
-                        </div>
-                        <div className="flex items-center">
-                          <Phone className="mr-1 h-3 w-3" />
-                          {customer.phone}
-                        </div>
-                      </div>
-                      <div className="flex items-center text-sm text-muted-foreground mt-1">
-                        <MapPin className="mr-1 h-3 w-3" />
-                        {customer.address}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
+    );
+  };
 
   const VehiclesContent = () => (
     <motion.div
