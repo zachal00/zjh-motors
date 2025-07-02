@@ -82,17 +82,31 @@ interface Product {
   stock: number;
 }
 
+interface InvoiceItem {
+  id: string;
+  productId: string;
+  name: string;
+  description: string;
+  quantity: number;
+  price: number;
+  total: number;
+}
+
 interface Invoice {
   id: string;
+  invoiceNumber: string;
   customerId: string;
   vehicleId: string;
-  items: { productId: string; quantity: number; price: number }[];
+  items: InvoiceItem[];
   subtotal: number;
   tax: number;
+  taxRate: number;
   total: number;
   status: 'draft' | 'sent' | 'paid' | 'overdue';
   createdAt: Date;
   dueDate: Date;
+  notes: string;
+  serviceCheckId?: string;
 }
 
 interface Appointment {
@@ -216,6 +230,102 @@ const mockAppointments: Appointment[] = [
   }
 ];
 
+const mockInvoices: Invoice[] = [
+  {
+    id: '1',
+    invoiceNumber: 'INV-202407-0001',
+    customerId: '1',
+    vehicleId: '1',
+    items: [
+      {
+        id: 'item-1',
+        productId: '1',
+        name: 'Oil Change Service',
+        description: 'Full synthetic oil change with filter',
+        quantity: 1,
+        price: 49.99,
+        total: 49.99
+      },
+      {
+        id: 'item-2',
+        productId: '3',
+        name: 'Air Filter',
+        description: 'Engine air filter replacement',
+        quantity: 1,
+        price: 24.99,
+        total: 24.99
+      }
+    ],
+    subtotal: 74.98,
+    tax: 6.37,
+    taxRate: 8.5,
+    total: 81.35,
+    status: 'paid',
+    createdAt: new Date('2024-06-20'),
+    dueDate: new Date('2024-07-20'),
+    notes: 'Thank you for your business!'
+  },
+  {
+    id: '2',
+    invoiceNumber: 'INV-202407-0002',
+    customerId: '2',
+    vehicleId: '2',
+    items: [
+      {
+        id: 'item-3',
+        productId: '2',
+        name: 'Brake Pads',
+        description: 'Premium ceramic brake pads',
+        quantity: 1,
+        price: 89.99,
+        total: 89.99
+      }
+    ],
+    subtotal: 89.99,
+    tax: 7.65,
+    taxRate: 8.5,
+    total: 97.64,
+    status: 'sent',
+    createdAt: new Date('2024-06-22'),
+    dueDate: new Date('2024-07-22'),
+    notes: 'Brake pads replacement completed. Please schedule follow-up inspection in 6 months.'
+  },
+  {
+    id: '3',
+    invoiceNumber: 'INV-202407-0003',
+    customerId: '1',
+    vehicleId: '1',
+    items: [
+      {
+        id: 'item-4',
+        productId: '1',
+        name: 'Oil Change Service',
+        description: 'Full synthetic oil change with filter',
+        quantity: 1,
+        price: 49.99,
+        total: 49.99
+      },
+      {
+        id: 'item-5',
+        productId: '2',
+        name: 'Brake Pads',
+        description: 'Premium ceramic brake pads',
+        quantity: 2,
+        price: 89.99,
+        total: 179.98
+      }
+    ],
+    subtotal: 229.97,
+    tax: 19.55,
+    taxRate: 8.5,
+    total: 249.52,
+    status: 'overdue',
+    createdAt: new Date('2024-06-15'),
+    dueDate: new Date('2024-07-15'),
+    notes: 'Complete brake service package with oil change.'
+  }
+];
+
 export default function BusinessManagementApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -223,8 +333,11 @@ export default function BusinessManagementApp() {
   const [vehicles, setVehicles] = useState<Vehicle[]>(mockVehicles);
   const [products, setProducts] = useState<Product[]>(mockProducts);
   const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const [invoices, setInvoices] = useState<Invoice[]>(mockInvoices);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentInvoice, setCurrentInvoice] = useState<Partial<Invoice> | null>(null);
+  const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
 
   // Google Calendar integration
   const {
@@ -295,6 +408,104 @@ export default function BusinessManagementApp() {
       return newAppointment;
     } catch (error) {
       console.error('Error creating appointment:', error);
+      throw error;
+    }
+  };
+
+  // Invoice management functions
+  const generateInvoiceNumber = () => {
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const invoiceCount = invoices.length + 1;
+    return `INV-${year}${month}-${String(invoiceCount).padStart(4, '0')}`;
+  };
+
+  const calculateInvoiceTotals = (items: InvoiceItem[], taxRate: number = 8.5) => {
+    const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+    const tax = subtotal * (taxRate / 100);
+    const total = subtotal + tax;
+    return { subtotal, tax, total };
+  };
+
+  const createInvoice = (invoiceData: Partial<Invoice>) => {
+    const newInvoice: Invoice = {
+      id: (invoices.length + 1).toString(),
+      invoiceNumber: generateInvoiceNumber(),
+      customerId: invoiceData.customerId || '',
+      vehicleId: invoiceData.vehicleId || '',
+      items: invoiceData.items || [],
+      subtotal: 0,
+      tax: 0,
+      taxRate: 8.5,
+      total: 0,
+      status: 'draft',
+      createdAt: new Date(),
+      dueDate: invoiceData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      notes: invoiceData.notes || '',
+      serviceCheckId: invoiceData.serviceCheckId
+    };
+
+    // Calculate totals
+    const totals = calculateInvoiceTotals(newInvoice.items, newInvoice.taxRate);
+    newInvoice.subtotal = totals.subtotal;
+    newInvoice.tax = totals.tax;
+    newInvoice.total = totals.total;
+
+    setInvoices(prev => [...prev, newInvoice]);
+    return newInvoice;
+  };
+
+  const updateInvoiceStatus = (invoiceId: string, status: Invoice['status']) => {
+    setInvoices(prev => prev.map(invoice => 
+      invoice.id === invoiceId ? { ...invoice, status } : invoice
+    ));
+  };
+
+  const generateInvoicePDF = async (invoice: Invoice) => {
+    // This would integrate with jsPDF to generate a PDF
+    // For now, we'll simulate the process
+    try {
+      const customer = customers.find(c => c.id === invoice.customerId);
+      const vehicle = vehicles.find(v => v.id === invoice.vehicleId);
+      
+      if (!customer || !vehicle) {
+        throw new Error('Customer or vehicle not found');
+      }
+
+      // In a real implementation, you would use jsPDF here
+      console.log('Generating PDF for invoice:', invoice.invoiceNumber);
+      
+      // Simulate PDF generation delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Return a blob URL for download (simulated)
+      return `data:application/pdf;base64,simulated-pdf-content-for-${invoice.invoiceNumber}`;
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      throw error;
+    }
+  };
+
+  const sendInvoiceEmail = async (invoice: Invoice) => {
+    try {
+      const customer = customers.find(c => c.id === invoice.customerId);
+      if (!customer) {
+        throw new Error('Customer not found');
+      }
+
+      // In a real implementation, this would call an email API
+      console.log(`Sending invoice ${invoice.invoiceNumber} to ${customer.email}`);
+      
+      // Simulate email sending delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Update invoice status to sent
+      updateInvoiceStatus(invoice.id, 'sent');
+      
+      return true;
+    } catch (error) {
+      console.error('Error sending email:', error);
       throw error;
     }
   };
@@ -872,194 +1083,472 @@ export default function BusinessManagementApp() {
     </motion.div>
   );
 
-  const InvoicesContent = () => (
-    <motion.div
-      variants={staggerContainer}
-      initial="initial"
-      animate="animate"
-      className="space-y-6"
-    >
-      <motion.div variants={fadeInUp} className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold text-primary">Invoices</h2>
-          <p className="text-muted-foreground">Create and manage invoices</p>
-        </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Invoice
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create New Invoice</DialogTitle>
-              <DialogDescription>Generate an invoice for services and parts</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="inv-customer">Customer</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+  const InvoicesContent = () => {
+    const [selectedCustomerId, setSelectedCustomerId] = useState('');
+    const [selectedVehicleId, setSelectedVehicleId] = useState('');
+    const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
+    const [invoiceNotes, setInvoiceNotes] = useState('');
+    const [invoiceDueDate, setInvoiceDueDate] = useState<Date>();
+    const [isCreating, setIsCreating] = useState(false);
+    const [isSending, setIsSending] = useState(false);
+    const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+    const addInvoiceItem = (product: Product, quantity: number = 1) => {
+      const existingItem = invoiceItems.find(item => item.productId === product.id);
+      
+      if (existingItem) {
+        setInvoiceItems(prev => prev.map(item => 
+          item.productId === product.id 
+            ? { ...item, quantity: item.quantity + quantity, total: (item.quantity + quantity) * item.price }
+            : item
+        ));
+      } else {
+        const newItem: InvoiceItem = {
+          id: `item-${Date.now()}`,
+          productId: product.id,
+          name: product.name,
+          description: product.description,
+          quantity,
+          price: product.price,
+          total: product.price * quantity
+        };
+        setInvoiceItems(prev => [...prev, newItem]);
+      }
+    };
+
+    const removeInvoiceItem = (itemId: string) => {
+      setInvoiceItems(prev => prev.filter(item => item.id !== itemId));
+    };
+
+    const updateItemQuantity = (itemId: string, quantity: number) => {
+      setInvoiceItems(prev => prev.map(item => 
+        item.id === itemId 
+          ? { ...item, quantity, total: quantity * item.price }
+          : item
+      ));
+    };
+
+    const resetInvoiceForm = () => {
+      setSelectedCustomerId('');
+      setSelectedVehicleId('');
+      setInvoiceItems([]);
+      setInvoiceNotes('');
+      setInvoiceDueDate(undefined);
+    };
+
+    const handleCreateInvoice = async (sendImmediately: boolean = false) => {
+      if (!selectedCustomerId || !selectedVehicleId || invoiceItems.length === 0) {
+        alert('Please fill in all required fields and add at least one item.');
+        return;
+      }
+
+      setIsCreating(true);
+      try {
+        const newInvoice = createInvoice({
+          customerId: selectedCustomerId,
+          vehicleId: selectedVehicleId,
+          items: invoiceItems,
+          notes: invoiceNotes,
+          dueDate: invoiceDueDate
+        });
+
+        if (sendImmediately) {
+          setIsSending(true);
+          await sendInvoiceEmail(newInvoice);
+        }
+
+        resetInvoiceForm();
+        alert(`Invoice ${newInvoice.invoiceNumber} ${sendImmediately ? 'created and sent' : 'created'} successfully!`);
+      } catch (error) {
+        console.error('Error creating invoice:', error);
+        alert('Error creating invoice. Please try again.');
+      } finally {
+        setIsCreating(false);
+        setIsSending(false);
+      }
+    };
+
+    const handleDownloadPDF = async (invoice: Invoice) => {
+      setIsGeneratingPDF(true);
+      try {
+        const pdfUrl = await generateInvoicePDF(invoice);
+        // In a real implementation, this would trigger a download
+        console.log('PDF generated:', pdfUrl);
+        alert('PDF generated successfully!');
+      } catch (error) {
+        console.error('Error generating PDF:', error);
+        alert('Error generating PDF. Please try again.');
+      } finally {
+        setIsGeneratingPDF(false);
+      }
+    };
+
+    const handleSendEmail = async (invoice: Invoice) => {
+      setIsSending(true);
+      try {
+        await sendInvoiceEmail(invoice);
+        alert('Invoice sent successfully!');
+      } catch (error) {
+        console.error('Error sending invoice:', error);
+        alert('Error sending invoice. Please try again.');
+      } finally {
+        setIsSending(false);
+      }
+    };
+
+    const filteredVehicles = vehicles.filter(vehicle => vehicle.customerId === selectedCustomerId);
+    const totals = calculateInvoiceTotals(invoiceItems);
+
+    return (
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="space-y-6"
+      >
+        <motion.div variants={fadeInUp} className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold text-primary">Invoices</h2>
+            <p className="text-muted-foreground">Create and manage invoices</p>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Invoice
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Create New Invoice</DialogTitle>
+                <DialogDescription>Generate an invoice for services and parts</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6">
+                {/* Customer and Vehicle Selection */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="inv-customer">Customer *</Label>
+                    <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="inv-vehicle">Vehicle *</Label>
+                    <Select 
+                      value={selectedVehicleId} 
+                      onValueChange={setSelectedVehicleId}
+                      disabled={!selectedCustomerId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select vehicle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredVehicles.map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id}>
+                            {vehicle.year} {vehicle.make} {vehicle.model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                
+                {/* Invoice Items */}
                 <div>
-                  <Label htmlFor="inv-vehicle">Vehicle</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select vehicle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicles.map((vehicle) => (
-                        <SelectItem key={vehicle.id} value={vehicle.id}>
-                          {vehicle.year} {vehicle.make} {vehicle.model}
-                        </SelectItem>
+                  <div className="flex justify-between items-center mb-4">
+                    <Label className="text-base font-semibold">Invoice Items *</Label>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Item
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Add Invoice Item</DialogTitle>
+                          <DialogDescription>Select products or services to add to the invoice</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 max-h-96 overflow-y-auto">
+                          {products.map((product) => (
+                            <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50">
+                              <div className="flex-1">
+                                <h4 className="font-medium">{product.name}</h4>
+                                <p className="text-sm text-muted-foreground">{product.description}</p>
+                                <p className="text-sm font-semibold text-primary">${product.price}</p>
+                              </div>
+                              <Button 
+                                size="sm" 
+                                onClick={() => addInvoiceItem(product)}
+                              >
+                                Add
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                  
+                  {invoiceItems.length > 0 ? (
+                    <div className="space-y-3">
+                      {invoiceItems.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-muted-foreground">{item.description}</p>
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <div className="flex items-center space-x-2">
+                              <Label className="text-sm">Qty:</Label>
+                              <Input 
+                                type="number" 
+                                value={item.quantity}
+                                onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
+                                className="w-16" 
+                                min="1"
+                              />
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-muted-foreground">${item.price} each</p>
+                              <p className="font-semibold">${item.total.toFixed(2)}</p>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => removeInvoiceItem(item.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No items added yet. Click "Add Item" to get started.
+                    </div>
+                  )}
                 </div>
-              </div>
-              
-              <div>
-                <Label className="text-base font-semibold">Invoice Items</Label>
-                <div className="space-y-3 mt-2">
-                  {products.slice(0, 2).map((product) => (
-                    <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-sm text-muted-foreground">{product.description}</p>
+
+                {/* Invoice Totals */}
+                {invoiceItems.length > 0 && (
+                  <div className="border-t pt-4">
+                    <div className="space-y-2 max-w-sm ml-auto">
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>${totals.subtotal.toFixed(2)}</span>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <Input type="number" placeholder="Qty" className="w-16" defaultValue="1" />
-                        <span className="font-semibold">${product.price}</span>
+                      <div className="flex justify-between">
+                        <span>Tax (8.5%):</span>
+                        <span>${totals.tax.toFixed(2)}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between font-semibold text-lg">
+                        <span>Total:</span>
+                        <span>${totals.total.toFixed(2)}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-                <Button variant="outline" className="mt-3">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Item
-                </Button>
-              </div>
-
-              <div className="border-t pt-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>$139.98</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Tax (8.5%):</span>
-                    <span>$11.90</span>
-                  </div>
-                  <div className="flex justify-between font-semibold text-lg">
-                    <span>Total:</span>
-                    <span>$151.88</span>
-                  </div>
-                </div>
-              </div>
+                )}
 
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="inv-notes">Notes</Label>
-                  <Textarea id="inv-notes" placeholder="Additional notes or recommendations..." />
+                {/* Additional Information */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="inv-notes">Notes & Recommendations</Label>
+                    <Textarea 
+                      id="inv-notes" 
+                      placeholder="Additional notes, recommendations, or terms..."
+                      value={invoiceNotes}
+                      onChange={(e) => setInvoiceNotes(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="inv-due">Due Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !invoiceDueDate && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {invoiceDueDate ? format(invoiceDueDate, "PPP") : "Pick due date (default: 30 days)"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={invoiceDueDate}
+                          onSelect={setInvoiceDueDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="inv-due">Due Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !selectedDate && "text-muted-foreground"
-                        )}
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, "PPP") : "Pick due date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <CalendarComponent
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
 
-              <div className="flex space-x-2">
-                <Button className="flex-1">Create & Send Invoice</Button>
-                <Button variant="outline" className="flex-1">Save as Draft</Button>
+                {/* Action Buttons */}
+                <div className="flex space-x-2">
+                  <Button 
+                    className="flex-1" 
+                    onClick={() => handleCreateInvoice(true)}
+                    disabled={isCreating || isSending}
+                  >
+                    {isSending ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Create & Send Invoice
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => handleCreateInvoice(false)}
+                    disabled={isCreating || isSending}
+                  >
+                    {isCreating ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Creating...
+                      </>
+                    ) : (
+                      'Save as Draft'
+                    )}
+                  </Button>
+                </div>
               </div>
+            </DialogContent>
+          </Dialog>
+        </motion.div>
+
+        {/* Invoice List */}
+        <motion.div variants={fadeInUp}>
+          <div className="flex space-x-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search invoices..."
+                className="pl-10"
+              />
             </div>
-          </DialogContent>
-        </Dialog>
-      </motion.div>
+            <Select defaultValue="all">
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="sent">Sent</SelectItem>
+                <SelectItem value="paid">Paid</SelectItem>
+                <SelectItem value="overdue">Overdue</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-      <motion.div variants={fadeInUp}>
-        <div className="grid gap-4">
-          {[
-            { id: '1', customer: 'John Smith', total: '$151.88', status: 'paid', date: '2024-06-20' },
-            { id: '2', customer: 'Sarah Johnson', total: '$89.99', status: 'sent', date: '2024-06-22' },
-            { id: '3', customer: 'Mike Wilson', total: '$245.50', status: 'overdue', date: '2024-06-15' }
-          ].map((invoice) => (
-            <Card key={invoice.id} className="hover:bg-accent/50 transition-colors">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
-                      <FileText className="h-8 w-8 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">Invoice #{invoice.id.padStart(4, '0')}</h3>
-                      <p className="text-sm text-muted-foreground">Customer: {invoice.customer}</p>
-                      <p className="text-sm text-muted-foreground">Date: {invoice.date}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">{invoice.total}</p>
-                      <Badge variant={
-                        invoice.status === 'paid' ? 'default' : 
-                        invoice.status === 'overdue' ? 'destructive' : 'secondary'
-                      }>
-                        {invoice.status}
-                      </Badge>
-                    </div>
-                    <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Send className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+          <div className="grid gap-4">
+            {invoices.length > 0 ? (
+              invoices.map((invoice) => {
+                const customer = customers.find(c => c.id === invoice.customerId);
+                const vehicle = vehicles.find(v => v.id === invoice.vehicleId);
+                
+                return (
+                  <Card key={invoice.id} className="hover:bg-accent/50 transition-colors">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                            <FileText className="h-8 w-8 text-white" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-lg">{invoice.invoiceNumber}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {customer?.name} - {vehicle?.year} {vehicle?.make} {vehicle?.model}
+                            </p>
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+                              <span>Created: {format(invoice.createdAt, "MMM dd, yyyy")}</span>
+                              <span>Due: {format(invoice.dueDate, "MMM dd, yyyy")}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-4">
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-primary">${invoice.total.toFixed(2)}</p>
+                            <Badge variant={
+                              invoice.status === 'paid' ? 'default' : 
+                              invoice.status === 'overdue' ? 'destructive' : 
+                              invoice.status === 'sent' ? 'secondary' : 'outline'
+                            }>
+                              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                            </Badge>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleDownloadPDF(invoice)}
+                              disabled={isGeneratingPDF}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleSendEmail(invoice)}
+                              disabled={isSending || invoice.status === 'paid'}
+                            >
+                              <Send className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">No Invoices Yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Create your first invoice to get started with billing your customers.
+                  </p>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create First Invoice
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </motion.div>
       </motion.div>
-    </motion.div>
-  );
+    );
+  };
 
   const ServiceChecksContent = () => (
     <motion.div
