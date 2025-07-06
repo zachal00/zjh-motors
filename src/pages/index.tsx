@@ -358,6 +358,14 @@ export default function BusinessManagementApp() {
   const [currentInvoice, setCurrentInvoice] = useState<Partial<Invoice> | null>(null);
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
 
+  // Invoice management states
+  const [isInvoiceViewDialogOpen, setIsInvoiceViewDialogOpen] = useState(false);
+  const [isInvoiceEditDialogOpen, setIsInvoiceEditDialogOpen] = useState(false);
+  const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
+  const [invoiceFilter, setInvoiceFilter] = useState<'all' | 'paid' | 'sent' | 'draft' | 'overdue'>('all');
+
   // Vehicle management states
   const [isVehicleViewDialogOpen, setIsVehicleViewDialogOpen] = useState(false);
   const [isVehicleEditDialogOpen, setIsVehicleEditDialogOpen] = useState(false);
@@ -371,6 +379,56 @@ export default function BusinessManagementApp() {
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [appointmentSearchTerm, setAppointmentSearchTerm] = useState('');
   const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'upcoming' | 'today' | 'past'>('all');
+
+  // Invoice management functions
+  const handleEditInvoice = () => {
+    if (!editingInvoice || !editingInvoice.customerId || !editingInvoice.vehicleId || editingInvoice.items.length === 0) {
+      alert('Please fill in all required fields and add at least one item.');
+      return;
+    }
+
+    // Recalculate totals
+    const totals = calculateInvoiceTotals(editingInvoice.items, editingInvoice.taxRate);
+    const updatedInvoice = {
+      ...editingInvoice,
+      subtotal: totals.subtotal,
+      tax: totals.tax,
+      total: totals.total
+    };
+
+    setInvoices(prev => prev.map(invoice => 
+      invoice.id === editingInvoice.id ? updatedInvoice : invoice
+    ));
+    setEditingInvoice(null);
+    setIsInvoiceEditDialogOpen(false);
+    alert('Invoice updated successfully!');
+  };
+
+  const handleDeleteInvoice = (invoiceId: string) => {
+    if (confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+      setInvoices(prev => prev.filter(invoice => invoice.id !== invoiceId));
+      alert('Invoice deleted successfully!');
+    }
+  };
+
+  const getInvoiceStats = (invoiceId: string) => {
+    const invoice = invoices.find(i => i.id === invoiceId);
+    if (!invoice) return null;
+
+    const customer = customers.find(c => c.id === invoice.customerId);
+    const vehicle = vehicles.find(v => v.id === invoice.vehicleId);
+    const relatedAppointments = appointments.filter(a => 
+      a.customerId === invoice.customerId && a.vehicleId === invoice.vehicleId
+    );
+
+    return {
+      customer,
+      vehicle,
+      relatedAppointments: relatedAppointments.length,
+      isOverdue: invoice.status === 'overdue' || (invoice.status !== 'paid' && invoice.dueDate < new Date()),
+      daysSinceCreated: Math.floor((new Date().getTime() - invoice.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+    };
+  };
 
   // Vehicle management functions
   const handleEditVehicle = () => {
@@ -2552,6 +2610,23 @@ export default function BusinessManagementApp() {
     const filteredVehicles = vehicles.filter(vehicle => vehicle.customerId === selectedCustomerId);
     const totals = calculateInvoiceTotals(invoiceItems);
 
+    const filteredInvoices = invoices.filter(invoice => {
+      const customer = customers.find(c => c.id === invoice.customerId);
+      const vehicle = vehicles.find(v => v.id === invoice.vehicleId);
+      
+      const matchesSearch = invoiceSearchTerm === '' || 
+        invoice.invoiceNumber.toLowerCase().includes(invoiceSearchTerm.toLowerCase()) ||
+        customer?.name.toLowerCase().includes(invoiceSearchTerm.toLowerCase()) ||
+        vehicle?.make.toLowerCase().includes(invoiceSearchTerm.toLowerCase()) ||
+        vehicle?.model.toLowerCase().includes(invoiceSearchTerm.toLowerCase());
+
+      if (invoiceFilter === 'all') {
+        return matchesSearch;
+      }
+      
+      return matchesSearch && invoice.status === invoiceFilter;
+    });
+
     return (
       <motion.div
         variants={staggerContainer}
@@ -2800,9 +2875,11 @@ export default function BusinessManagementApp() {
               <Input
                 placeholder="Search invoices..."
                 className="pl-10"
+                value={invoiceSearchTerm}
+                onChange={(e) => setInvoiceSearchTerm(e.target.value)}
               />
             </div>
-            <Select defaultValue="all">
+            <Select value={invoiceFilter} onValueChange={(value) => setInvoiceFilter(value as 'all' | 'paid' | 'sent' | 'draft' | 'overdue')}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -2817,8 +2894,8 @@ export default function BusinessManagementApp() {
           </div>
 
           <div className="grid gap-4">
-            {invoices.length > 0 ? (
-              invoices.map((invoice) => {
+            {filteredInvoices.length > 0 ? (
+              filteredInvoices.map((invoice) => {
                 const customer = customers.find(c => c.id === invoice.customerId);
                 const vehicle = vehicles.find(v => v.id === invoice.vehicleId);
                 
@@ -2869,11 +2946,32 @@ export default function BusinessManagementApp() {
                             >
                               <Send className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setViewingInvoice(invoice);
+                                setIsInvoiceViewDialogOpen(true);
+                              }}
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => {
+                                setEditingInvoice({ ...invoice });
+                                setIsInvoiceEditDialogOpen(true);
+                              }}
+                            >
                               <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleDeleteInvoice(invoice.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
@@ -2886,19 +2984,353 @@ export default function BusinessManagementApp() {
               <Card>
                 <CardContent className="p-8 text-center">
                   <FileText className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No Invoices Yet</h3>
+                  <h3 className="text-xl font-semibold mb-2">
+                    {invoiceSearchTerm || invoiceFilter !== 'all' ? 'No invoices found' : 'No Invoices Yet'}
+                  </h3>
                   <p className="text-muted-foreground mb-4">
-                    Create your first invoice to get started with billing your customers.
+                    {invoiceSearchTerm || invoiceFilter !== 'all'
+                      ? 'Try adjusting your search terms or filters.'
+                      : 'Create your first invoice to get started with billing your customers.'
+                    }
                   </p>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create First Invoice
-                  </Button>
+                  {!invoiceSearchTerm && invoiceFilter === 'all' && (
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create First Invoice
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )}
           </div>
         </motion.div>
+
+        {/* View Invoice Dialog */}
+        <Dialog open={isInvoiceViewDialogOpen} onOpenChange={setIsInvoiceViewDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Invoice Details</DialogTitle>
+              <DialogDescription>Complete invoice information</DialogDescription>
+            </DialogHeader>
+            {viewingInvoice && (
+              <div className="space-y-6">
+                {/* Invoice Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                          <FileText className="h-4 w-4 text-white" />
+                        </div>
+                        <span>{viewingInvoice.invoiceNumber}</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span>Customer: {customers.find(c => c.id === viewingInvoice.customerId)?.name}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Car className="h-4 w-4 text-muted-foreground" />
+                        <span>Vehicle: {(() => {
+                          const vehicle = vehicles.find(v => v.id === viewingInvoice.vehicleId);
+                          return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'Unknown';
+                        })()}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>Created: {format(viewingInvoice.createdAt, "MMMM dd, yyyy")}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span>Due: {format(viewingInvoice.dueDate, "MMMM dd, yyyy")}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium">Status:</span>
+                        <Badge variant={
+                          viewingInvoice.status === 'paid' ? 'default' : 
+                          viewingInvoice.status === 'overdue' ? 'destructive' : 
+                          viewingInvoice.status === 'sent' ? 'secondary' : 'outline'
+                        }>
+                          {viewingInvoice.status.charAt(0).toUpperCase() + viewingInvoice.status.slice(1)}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Invoice Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span>Subtotal:</span>
+                          <span>${viewingInvoice.subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Tax ({viewingInvoice.taxRate}%):</span>
+                          <span>${viewingInvoice.tax.toFixed(2)}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between font-semibold text-lg">
+                          <span>Total:</span>
+                          <span className="text-primary">${viewingInvoice.total.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Invoice Items */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Invoice Items</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {viewingInvoice.items.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-muted-foreground">{item.description}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">
+                              {item.quantity} × ${item.price.toFixed(2)}
+                            </p>
+                            <p className="font-semibold">${item.total.toFixed(2)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Notes */}
+                {viewingInvoice.notes && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Notes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground">{viewingInvoice.notes}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline"
+                    onClick={() => handleDownloadPDF(viewingInvoice)}
+                    disabled={isGeneratingPDF}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download PDF
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setEditingInvoice({ ...viewingInvoice });
+                      setIsInvoiceViewDialogOpen(false);
+                      setIsInvoiceEditDialogOpen(true);
+                    }}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Invoice
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsInvoiceViewDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Invoice Dialog */}
+        <Dialog open={isInvoiceEditDialogOpen} onOpenChange={setIsInvoiceEditDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Invoice</DialogTitle>
+              <DialogDescription>Update invoice information</DialogDescription>
+            </DialogHeader>
+            {editingInvoice && (
+              <div className="space-y-6">
+                {/* Customer and Vehicle Selection */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-inv-customer">Customer *</Label>
+                    <Select 
+                      value={editingInvoice.customerId} 
+                      onValueChange={(value) => setEditingInvoice(prev => prev ? { ...prev, customerId: value } : null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-inv-vehicle">Vehicle *</Label>
+                    <Select 
+                      value={editingInvoice.vehicleId} 
+                      onValueChange={(value) => setEditingInvoice(prev => prev ? { ...prev, vehicleId: value } : null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select vehicle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vehicles.filter(v => v.customerId === editingInvoice.customerId).map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id}>
+                            {vehicle.year} {vehicle.make} {vehicle.model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Invoice Items */}
+                <div>
+                  <Label className="text-base font-semibold">Invoice Items *</Label>
+                  <div className="space-y-3 mt-2">
+                    {editingInvoice.items.map((item, index) => (
+                      <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-sm text-muted-foreground">{item.description}</p>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
+                            <Label className="text-sm">Qty:</Label>
+                            <Input 
+                              type="number" 
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const newQuantity = parseInt(e.target.value) || 1;
+                                setEditingInvoice(prev => prev ? {
+                                  ...prev,
+                                  items: prev.items.map((i, idx) => 
+                                    idx === index 
+                                      ? { ...i, quantity: newQuantity, total: newQuantity * i.price }
+                                      : i
+                                  )
+                                } : null);
+                              }}
+                              className="w-16" 
+                              min="1"
+                            />
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">${item.price} each</p>
+                            <p className="font-semibold">${item.total.toFixed(2)}</p>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setEditingInvoice(prev => prev ? {
+                                ...prev,
+                                items: prev.items.filter((_, idx) => idx !== index)
+                              } : null);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Invoice Totals */}
+                {editingInvoice.items.length > 0 && (
+                  <div className="border-t pt-4">
+                    <div className="space-y-2 max-w-sm ml-auto">
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>${editingInvoice.items.reduce((sum, item) => sum + item.total, 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Tax ({editingInvoice.taxRate}%):</span>
+                        <span>${(editingInvoice.items.reduce((sum, item) => sum + item.total, 0) * (editingInvoice.taxRate / 100)).toFixed(2)}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between font-semibold text-lg">
+                        <span>Total:</span>
+                        <span>${(editingInvoice.items.reduce((sum, item) => sum + item.total, 0) * (1 + editingInvoice.taxRate / 100)).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Information */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-inv-status">Status</Label>
+                    <Select 
+                      value={editingInvoice.status} 
+                      onValueChange={(value: any) => setEditingInvoice(prev => prev ? { ...prev, status: value } : null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="sent">Sent</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-inv-notes">Notes & Recommendations</Label>
+                    <Textarea 
+                      id="edit-inv-notes" 
+                      value={editingInvoice.notes}
+                      onChange={(e) => setEditingInvoice(prev => prev ? { ...prev, notes: e.target.value } : null)}
+                      placeholder="Additional notes, recommendations, or terms..."
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-inv-due">Due Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {format(editingInvoice.dueDate, "PPP")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={editingInvoice.dueDate}
+                          onSelect={(date) => setEditingInvoice(prev => prev && date ? { ...prev, dueDate: date } : prev)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button className="flex-1" onClick={handleEditInvoice}>Save Changes</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setIsInvoiceEditDialogOpen(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </motion.div>
     );
   };
