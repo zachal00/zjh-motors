@@ -2030,7 +2030,7 @@ export default function BusinessManagementApp() {
                 onChange={(e) => setAppointmentSearchTerm(e.target.value)}
               />
             </div>
-            <Select value={appointmentFilter} onValueChange={setAppointmentFilter}>
+            <Select value={appointmentFilter} onValueChange={(value) => setAppointmentFilter(value as 'all' | 'upcoming' | 'today' | 'past')}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Filter appointments" />
               </SelectTrigger>
