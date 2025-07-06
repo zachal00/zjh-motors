@@ -364,6 +364,14 @@ export default function BusinessManagementApp() {
   const [viewingVehicle, setViewingVehicle] = useState<Vehicle | null>(null);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
 
+  // Appointment management states
+  const [isAppointmentViewDialogOpen, setIsAppointmentViewDialogOpen] = useState(false);
+  const [isAppointmentEditDialogOpen, setIsAppointmentEditDialogOpen] = useState(false);
+  const [viewingAppointment, setViewingAppointment] = useState<Appointment | null>(null);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [appointmentSearchTerm, setAppointmentSearchTerm] = useState('');
+  const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'upcoming' | 'today' | 'past'>('all');
+
   // Vehicle management functions
   const handleEditVehicle = () => {
     if (!editingVehicle || !editingVehicle.make || !editingVehicle.model || !editingVehicle.year) {
@@ -409,6 +417,45 @@ export default function BusinessManagementApp() {
       lastService: vehicleAppointments.length > 0 
         ? new Date(Math.max(...vehicleAppointments.map(a => a.date.getTime())))
         : null
+    };
+  };
+
+  // Appointment management functions
+  const handleEditAppointment = () => {
+    if (!editingAppointment || !editingAppointment.customerId || !editingAppointment.vehicleId || !editingAppointment.service) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+
+    setAppointments(prev => prev.map(appointment => 
+      appointment.id === editingAppointment.id ? editingAppointment : appointment
+    ));
+    setEditingAppointment(null);
+    setIsAppointmentEditDialogOpen(false);
+    alert('Appointment updated successfully!');
+  };
+
+  const handleDeleteAppointment = (appointmentId: string) => {
+    if (confirm('Are you sure you want to delete this appointment? This action cannot be undone.')) {
+      setAppointments(prev => prev.filter(appointment => appointment.id !== appointmentId));
+      alert('Appointment deleted successfully!');
+    }
+  };
+
+  const getAppointmentStats = (appointmentId: string) => {
+    const appointment = appointments.find(a => a.id === appointmentId);
+    if (!appointment) return null;
+
+    const customer = customers.find(c => c.id === appointment.customerId);
+    const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
+    const relatedInvoices = invoices.filter(i => i.customerId === appointment.customerId && i.vehicleId === appointment.vehicleId);
+
+    return {
+      customer,
+      vehicle,
+      relatedInvoices: relatedInvoices.length,
+      isUpcoming: appointment.date >= new Date(),
+      daysSinceCreated: Math.floor((new Date().getTime() - appointment.date.getTime()) / (1000 * 60 * 60 * 24))
     };
   };
 
@@ -1823,174 +1870,571 @@ export default function BusinessManagementApp() {
     </motion.div>
   );
 
-  const AppointmentsContent = () => (
-    <motion.div
-      variants={staggerContainer}
-      initial="initial"
-      animate="animate"
-      className="space-y-6"
-    >
-      <motion.div variants={fadeInUp} className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold text-primary">Appointments</h2>
-          <p className="text-muted-foreground">Schedule and manage appointments</p>
-        </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Schedule Appointment
-            </Button>
-          </DialogTrigger>
+  const AppointmentsContent = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const filteredAppointments = appointments.filter(appointment => {
+      const customer = customers.find(c => c.id === appointment.customerId);
+      const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
+      
+      const matchesSearch = appointmentSearchTerm === '' || 
+        appointment.service.toLowerCase().includes(appointmentSearchTerm.toLowerCase()) ||
+        customer?.name.toLowerCase().includes(appointmentSearchTerm.toLowerCase()) ||
+        vehicle?.make.toLowerCase().includes(appointmentSearchTerm.toLowerCase()) ||
+        vehicle?.model.toLowerCase().includes(appointmentSearchTerm.toLowerCase());
+
+      if (appointmentFilter === 'today') {
+        const appointmentDate = new Date(appointment.date);
+        appointmentDate.setHours(0, 0, 0, 0);
+        return matchesSearch && appointmentDate.getTime() === today.getTime();
+      } else if (appointmentFilter === 'upcoming') {
+        return matchesSearch && appointment.date >= today;
+      } else if (appointmentFilter === 'past') {
+        return matchesSearch && appointment.date < today;
+      }
+      
+      return matchesSearch;
+    });
+
+    return (
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="space-y-6"
+      >
+        <motion.div variants={fadeInUp} className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold text-primary">Appointments</h2>
+            <p className="text-muted-foreground">Schedule and manage appointments</p>
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Schedule Appointment
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Schedule New Appointment</DialogTitle>
+                <DialogDescription>Book a service appointment</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="apt-customer">Customer</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="apt-vehicle">Vehicle</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select vehicle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicles.map((vehicle) => (
+                        <SelectItem key={vehicle.id} value={vehicle.id}>
+                          {vehicle.year} {vehicle.make} {vehicle.model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="apt-service">Service Type</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="oil-change">Oil Change</SelectItem>
+                      <SelectItem value="brake-service">Brake Service</SelectItem>
+                      <SelectItem value="tire-rotation">Tire Rotation</SelectItem>
+                      <SelectItem value="inspection">General Inspection</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="apt-date">Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !selectedDate && "text-muted-foreground"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <CalendarComponent
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label htmlFor="apt-time">Time</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="08:00">8:00 AM</SelectItem>
+                      <SelectItem value="09:00">9:00 AM</SelectItem>
+                      <SelectItem value="10:00">10:00 AM</SelectItem>
+                      <SelectItem value="11:00">11:00 AM</SelectItem>
+                      <SelectItem value="13:00">1:00 PM</SelectItem>
+                      <SelectItem value="14:00">2:00 PM</SelectItem>
+                      <SelectItem value="15:00">3:00 PM</SelectItem>
+                      <SelectItem value="16:00">4:00 PM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="apt-notes">Notes</Label>
+                  <Textarea id="apt-notes" placeholder="Special instructions or concerns..." />
+                </div>
+                <Button className="w-full">Schedule Appointment</Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </motion.div>
+
+        <motion.div variants={fadeInUp}>
+          <div className="flex space-x-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search appointments by service, customer, or vehicle..."
+                className="pl-10"
+                value={appointmentSearchTerm}
+                onChange={(e) => setAppointmentSearchTerm(e.target.value)}
+              />
+            </div>
+            <Select value={appointmentFilter} onValueChange={setAppointmentFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Filter appointments" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Appointments</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="upcoming">Upcoming</SelectItem>
+                <SelectItem value="past">Past</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-4">
+            {filteredAppointments.length > 0 ? (
+              filteredAppointments.map((appointment) => {
+                const customer = customers.find(c => c.id === appointment.customerId);
+                const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
+                const isUpcoming = appointment.date >= today;
+                
+                return (
+                  <Card key={appointment.id} className="hover:bg-accent/50 transition-colors">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
+                            <Calendar className="h-8 w-8 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg">{appointment.service}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {customer?.name} - {vehicle?.year} {vehicle?.make} {vehicle?.model}
+                            </p>
+                            <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+                              <span>{format(appointment.date, "PPP")}</span>
+                              <span>{appointment.time}</span>
+                              {!isUpcoming && (
+                                <span className="text-orange-600">Past</span>
+                              )}
+                            </div>
+                            {appointment.notes && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                Notes: {appointment.notes}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Badge variant={
+                            appointment.status === 'completed' ? 'default' : 
+                            appointment.status === 'in-progress' ? 'secondary' :
+                            appointment.status === 'cancelled' ? 'destructive' : 'outline'
+                          }>
+                            {appointment.status}
+                          </Badge>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setViewingAppointment(appointment);
+                              setIsAppointmentViewDialogOpen(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setEditingAppointment({ ...appointment });
+                              setIsAppointmentEditDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleDeleteAppointment(appointment.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">
+                    {appointmentSearchTerm || appointmentFilter !== 'all' ? 'No appointments found' : 'No appointments yet'}
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    {appointmentSearchTerm || appointmentFilter !== 'all'
+                      ? 'Try adjusting your search terms or filters.'
+                      : 'Schedule your first appointment to get started.'
+                    }
+                  </p>
+                  {!appointmentSearchTerm && appointmentFilter === 'all' && (
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Schedule First Appointment
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Edit Appointment Dialog */}
+        <Dialog open={isAppointmentEditDialogOpen} onOpenChange={setIsAppointmentEditDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Schedule New Appointment</DialogTitle>
-              <DialogDescription>Book a service appointment</DialogDescription>
+              <DialogTitle>Edit Appointment</DialogTitle>
+              <DialogDescription>Update appointment information</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="apt-customer">Customer</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {editingAppointment && (
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="edit-apt-customer">Customer *</Label>
+                  <Select 
+                    value={editingAppointment.customerId} 
+                    onValueChange={(value) => setEditingAppointment(prev => prev ? { ...prev, customerId: value } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-apt-vehicle">Vehicle *</Label>
+                  <Select 
+                    value={editingAppointment.vehicleId} 
+                    onValueChange={(value) => setEditingAppointment(prev => prev ? { ...prev, vehicleId: value } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select vehicle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicles.filter(v => v.customerId === editingAppointment.customerId).map((vehicle) => (
+                        <SelectItem key={vehicle.id} value={vehicle.id}>
+                          {vehicle.year} {vehicle.make} {vehicle.model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-apt-service">Service Type *</Label>
+                  <Select 
+                    value={editingAppointment.service} 
+                    onValueChange={(value) => setEditingAppointment(prev => prev ? { ...prev, service: value } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Oil Change">Oil Change</SelectItem>
+                      <SelectItem value="Brake Service">Brake Service</SelectItem>
+                      <SelectItem value="Tire Rotation">Tire Rotation</SelectItem>
+                      <SelectItem value="General Inspection">General Inspection</SelectItem>
+                      <SelectItem value="Brake Inspection">Brake Inspection</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-apt-date">Date *</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {format(editingAppointment.date, "PPP")}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <CalendarComponent
+                        mode="single"
+                        selected={editingAppointment.date}
+                        onSelect={(date) => setEditingAppointment(prev => prev && date ? { ...prev, date } : prev)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div>
+                  <Label htmlFor="edit-apt-time">Time *</Label>
+                  <Select 
+                    value={editingAppointment.time} 
+                    onValueChange={(value) => setEditingAppointment(prev => prev ? { ...prev, time: value } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="8:00 AM">8:00 AM</SelectItem>
+                      <SelectItem value="9:00 AM">9:00 AM</SelectItem>
+                      <SelectItem value="10:00 AM">10:00 AM</SelectItem>
+                      <SelectItem value="11:00 AM">11:00 AM</SelectItem>
+                      <SelectItem value="1:00 PM">1:00 PM</SelectItem>
+                      <SelectItem value="2:00 PM">2:00 PM</SelectItem>
+                      <SelectItem value="3:00 PM">3:00 PM</SelectItem>
+                      <SelectItem value="4:00 PM">4:00 PM</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-apt-status">Status</Label>
+                  <Select 
+                    value={editingAppointment.status} 
+                    onValueChange={(value: any) => setEditingAppointment(prev => prev ? { ...prev, status: value } : null)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scheduled">Scheduled</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="edit-apt-notes">Notes</Label>
+                  <Textarea 
+                    id="edit-apt-notes" 
+                    value={editingAppointment.notes}
+                    onChange={(e) => setEditingAppointment(prev => prev ? { ...prev, notes: e.target.value } : null)}
+                    placeholder="Special instructions or concerns..."
+                  />
+                </div>
+                <div className="flex space-x-2">
+                  <Button className="flex-1" onClick={handleEditAppointment}>Save Changes</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setIsAppointmentEditDialogOpen(false)}>Cancel</Button>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="apt-vehicle">Vehicle</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select vehicle" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vehicles.map((vehicle) => (
-                      <SelectItem key={vehicle.id} value={vehicle.id}>
-                        {vehicle.year} {vehicle.make} {vehicle.model}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="apt-service">Service Type</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="oil-change">Oil Change</SelectItem>
-                    <SelectItem value="brake-service">Brake Service</SelectItem>
-                    <SelectItem value="tire-rotation">Tire Rotation</SelectItem>
-                    <SelectItem value="inspection">General Inspection</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="apt-date">Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !selectedDate && "text-muted-foreground"
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* View Appointment Dialog */}
+        <Dialog open={isAppointmentViewDialogOpen} onOpenChange={setIsAppointmentViewDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Appointment Details</DialogTitle>
+              <DialogDescription>Complete appointment information</DialogDescription>
+            </DialogHeader>
+            {viewingAppointment && (
+              <div className="space-y-6">
+                {/* Appointment Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
+                          <Calendar className="h-4 w-4 text-white" />
+                        </div>
+                        <span>{viewingAppointment.service}</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span>Customer: {customers.find(c => c.id === viewingAppointment.customerId)?.name}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Car className="h-4 w-4 text-muted-foreground" />
+                        <span>Vehicle: {(() => {
+                          const vehicle = vehicles.find(v => v.id === viewingAppointment.vehicleId);
+                          return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'Unknown';
+                        })()}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>{format(viewingAppointment.date, "MMMM dd, yyyy")}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span>{viewingAppointment.time}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium">Status:</span>
+                        <Badge variant={
+                          viewingAppointment.status === 'completed' ? 'default' : 
+                          viewingAppointment.status === 'in-progress' ? 'secondary' :
+                          viewingAppointment.status === 'cancelled' ? 'destructive' : 'outline'
+                        }>
+                          {viewingAppointment.status}
+                        </Badge>
+                      </div>
+                      {viewingAppointment.notes && (
+                        <div className="mt-4">
+                          <span className="text-sm font-medium">Notes:</span>
+                          <p className="text-sm text-muted-foreground mt-1">{viewingAppointment.notes}</p>
+                        </div>
                       )}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <CalendarComponent
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Customer Information</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {(() => {
+                        const customer = customers.find(c => c.id === viewingAppointment.customerId);
+                        return customer ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-2">
+                              <Mail className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm">{customer.email}</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Phone className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm">{customer.phone}</span>
+                            </div>
+                            <div className="flex items-start space-x-2">
+                              <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
+                              <span className="text-sm">{customer.address || 'No address provided'}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-muted-foreground">Customer information not found</p>
+                        );
+                      })()}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Related Records */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Related Records</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const relatedInvoices = invoices.filter(i => 
+                        i.customerId === viewingAppointment.customerId && 
+                        i.vehicleId === viewingAppointment.vehicleId
+                      );
+                      
+                      return relatedInvoices.length > 0 ? (
+                        <div className="space-y-3">
+                          <h4 className="font-medium">Related Invoices:</h4>
+                          {relatedInvoices.slice(0, 3).map((invoice) => (
+                            <div key={invoice.id} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div>
+                                <p className="font-medium">{invoice.invoiceNumber}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {format(invoice.createdAt, "MMM dd, yyyy")} • ${invoice.total.toFixed(2)}
+                                </p>
+                              </div>
+                              <Badge variant={
+                                invoice.status === 'paid' ? 'default' : 
+                                invoice.status === 'overdue' ? 'destructive' : 'secondary'
+                              }>
+                                {invoice.status}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground">No related invoices found</p>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setEditingAppointment({ ...viewingAppointment });
+                      setIsAppointmentViewDialogOpen(false);
+                      setIsAppointmentEditDialogOpen(true);
+                    }}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Appointment
+                  </Button>
+                  <Button variant="outline" onClick={() => setIsAppointmentViewDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="apt-time">Time</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select time" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="08:00">8:00 AM</SelectItem>
-                    <SelectItem value="09:00">9:00 AM</SelectItem>
-                    <SelectItem value="10:00">10:00 AM</SelectItem>
-                    <SelectItem value="11:00">11:00 AM</SelectItem>
-                    <SelectItem value="13:00">1:00 PM</SelectItem>
-                    <SelectItem value="14:00">2:00 PM</SelectItem>
-                    <SelectItem value="15:00">3:00 PM</SelectItem>
-                    <SelectItem value="16:00">4:00 PM</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="apt-notes">Notes</Label>
-                <Textarea id="apt-notes" placeholder="Special instructions or concerns..." />
-              </div>
-              <Button className="w-full">Schedule Appointment</Button>
-            </div>
+            )}
           </DialogContent>
         </Dialog>
       </motion.div>
-
-      <motion.div variants={fadeInUp}>
-        <div className="grid gap-4">
-          {appointments.map((appointment) => {
-            const customer = customers.find(c => c.id === appointment.customerId);
-            const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
-            return (
-              <Card key={appointment.id} className="hover:bg-accent/50 transition-colors">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
-                        <Calendar className="h-8 w-8 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">{appointment.service}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {customer?.name} - {vehicle?.year} {vehicle?.make} {vehicle?.model}
-                        </p>
-                        <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
-                          <span>{format(appointment.date, "PPP")}</span>
-                          <span>{appointment.time}</span>
-                        </div>
-                        {appointment.notes && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Notes: {appointment.notes}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant={appointment.status === 'scheduled' ? 'default' : 'secondary'}>
-                        {appointment.status}
-                      </Badge>
-                      <Button variant="outline" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
+    );
+  };
 
   const InvoicesContent = () => {
     const [selectedCustomerId, setSelectedCustomerId] = useState('');
