@@ -358,6 +358,60 @@ export default function BusinessManagementApp() {
   const [currentInvoice, setCurrentInvoice] = useState<Partial<Invoice> | null>(null);
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
 
+  // Vehicle management states
+  const [isVehicleViewDialogOpen, setIsVehicleViewDialogOpen] = useState(false);
+  const [isVehicleEditDialogOpen, setIsVehicleEditDialogOpen] = useState(false);
+  const [viewingVehicle, setViewingVehicle] = useState<Vehicle | null>(null);
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+
+  // Vehicle management functions
+  const handleEditVehicle = () => {
+    if (!editingVehicle || !editingVehicle.make || !editingVehicle.model || !editingVehicle.year) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+
+    setVehicles(prev => prev.map(vehicle => 
+      vehicle.id === editingVehicle.id ? editingVehicle : vehicle
+    ));
+    setEditingVehicle(null);
+    setIsVehicleEditDialogOpen(false);
+    alert('Vehicle updated successfully!');
+  };
+
+  const handleDeleteVehicle = (vehicleId: string) => {
+    if (confirm('Are you sure you want to delete this vehicle? This action cannot be undone.')) {
+      // Check if vehicle has associated appointments or invoices
+      const hasAppointments = appointments.some(a => a.vehicleId === vehicleId);
+      const hasInvoices = invoices.some(i => i.vehicleId === vehicleId);
+
+      if (hasAppointments || hasInvoices) {
+        alert('Cannot delete vehicle with existing appointments or invoices. Please remove associated records first.');
+        return;
+      }
+
+      setVehicles(prev => prev.filter(vehicle => vehicle.id !== vehicleId));
+      alert('Vehicle deleted successfully!');
+    }
+  };
+
+  const getVehicleStats = (vehicleId: string) => {
+    const vehicleAppointments = appointments.filter(a => a.vehicleId === vehicleId);
+    const vehicleInvoices = invoices.filter(i => i.vehicleId === vehicleId);
+    const totalSpent = vehicleInvoices
+      .filter(i => i.status === 'paid')
+      .reduce((sum, i) => sum + i.total, 0);
+
+    return {
+      appointmentCount: vehicleAppointments.length,
+      invoiceCount: vehicleInvoices.length,
+      totalSpent,
+      lastService: vehicleAppointments.length > 0 
+        ? new Date(Math.max(...vehicleAppointments.map(a => a.date.getTime())))
+        : null
+    };
+  };
+
   // Google Calendar integration
   const {
     isConnected: isCalendarConnected,
@@ -1414,9 +1468,30 @@ export default function BusinessManagementApp() {
       </motion.div>
 
       <motion.div variants={fadeInUp}>
+        <div className="flex space-x-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search vehicles by make, model, or license plate..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
         <div className="grid gap-4">
-          {vehicles.map((vehicle) => {
+          {vehicles.filter(vehicle => {
             const customer = customers.find(c => c.id === vehicle.customerId);
+            const searchLower = searchTerm.toLowerCase();
+            return vehicle.make.toLowerCase().includes(searchLower) ||
+                   vehicle.model.toLowerCase().includes(searchLower) ||
+                   vehicle.licensePlate.toLowerCase().includes(searchLower) ||
+                   vehicle.vin.toLowerCase().includes(searchLower) ||
+                   customer?.name.toLowerCase().includes(searchLower);
+          }).map((vehicle) => {
+            const customer = customers.find(c => c.id === vehicle.customerId);
+            const stats = getVehicleStats(vehicle.id);
             return (
               <Card key={vehicle.id} className="hover:bg-accent/50 transition-colors">
                 <CardContent className="p-6">
@@ -1425,7 +1500,7 @@ export default function BusinessManagementApp() {
                       <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                         <Car className="h-8 w-8 text-white" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-semibold text-lg">
                           {vehicle.year} {vehicle.make} {vehicle.model}
                         </h3>
@@ -1435,14 +1510,42 @@ export default function BusinessManagementApp() {
                           <span>Plate: {vehicle.licensePlate}</span>
                           <span>Color: {vehicle.color}</span>
                         </div>
+                        <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-2">
+                          <span>{stats.appointmentCount} appointment{stats.appointmentCount !== 1 ? 's' : ''}</span>
+                          <span>${stats.totalSpent.toFixed(2)} total spent</span>
+                          {stats.lastService && (
+                            <span>Last service: {format(stats.lastService, "MMM dd, yyyy")}</span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setViewingVehicle(vehicle);
+                          setIsVehicleViewDialogOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setEditingVehicle({ ...vehicle });
+                          setIsVehicleEditDialogOpen(true);
+                        }}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm">
-                        <Eye className="h-4 w-4" />
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleDeleteVehicle(vehicle.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
@@ -1452,6 +1555,271 @@ export default function BusinessManagementApp() {
           })}
         </div>
       </motion.div>
+
+      {/* Edit Vehicle Dialog */}
+      <Dialog open={isVehicleEditDialogOpen} onOpenChange={setIsVehicleEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Vehicle</DialogTitle>
+            <DialogDescription>Update vehicle information</DialogDescription>
+          </DialogHeader>
+          {editingVehicle && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-customer">Customer</Label>
+                <Select 
+                  value={editingVehicle.customerId} 
+                  onValueChange={(value) => setEditingVehicle(prev => prev ? { ...prev, customerId: value } : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select customer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers.map((customer) => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-make">Make *</Label>
+                  <Input 
+                    id="edit-make" 
+                    value={editingVehicle.make}
+                    onChange={(e) => setEditingVehicle(prev => prev ? { ...prev, make: e.target.value } : null)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-model">Model *</Label>
+                  <Input 
+                    id="edit-model" 
+                    value={editingVehicle.model}
+                    onChange={(e) => setEditingVehicle(prev => prev ? { ...prev, model: e.target.value } : null)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="edit-year">Year *</Label>
+                  <Input 
+                    id="edit-year" 
+                    type="number" 
+                    value={editingVehicle.year}
+                    onChange={(e) => setEditingVehicle(prev => prev ? { ...prev, year: parseInt(e.target.value) || 0 } : null)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-color">Color</Label>
+                  <Input 
+                    id="edit-color" 
+                    value={editingVehicle.color}
+                    onChange={(e) => setEditingVehicle(prev => prev ? { ...prev, color: e.target.value } : null)}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="edit-vin">VIN</Label>
+                <Input 
+                  id="edit-vin" 
+                  value={editingVehicle.vin}
+                  onChange={(e) => setEditingVehicle(prev => prev ? { ...prev, vin: e.target.value } : null)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-license">License Plate</Label>
+                <Input 
+                  id="edit-license" 
+                  value={editingVehicle.licensePlate}
+                  onChange={(e) => setEditingVehicle(prev => prev ? { ...prev, licensePlate: e.target.value } : null)}
+                />
+              </div>
+              <div className="flex space-x-2">
+                <Button className="flex-1" onClick={handleEditVehicle}>Save Changes</Button>
+                <Button variant="outline" className="flex-1" onClick={() => setIsVehicleEditDialogOpen(false)}>Cancel</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Vehicle Dialog */}
+      <Dialog open={isVehicleViewDialogOpen} onOpenChange={setIsVehicleViewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Vehicle Details</DialogTitle>
+            <DialogDescription>Complete vehicle information and service history</DialogDescription>
+          </DialogHeader>
+          {viewingVehicle && (
+            <div className="space-y-6">
+              {/* Vehicle Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <Car className="h-4 w-4 text-white" />
+                      </div>
+                      <span>{viewingVehicle.year} {viewingVehicle.make} {viewingVehicle.model}</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex items-center space-x-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>Owner: {customers.find(c => c.id === viewingVehicle.customerId)?.name}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium">VIN:</span>
+                      <span className="text-sm">{viewingVehicle.vin}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium">License Plate:</span>
+                      <span className="text-sm">{viewingVehicle.licensePlate}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium">Color:</span>
+                      <span className="text-sm">{viewingVehicle.color}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Service Statistics</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const stats = getVehicleStats(viewingVehicle.id);
+                      return (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="text-center p-3 bg-accent/20 rounded-lg">
+                            <p className="text-2xl font-bold text-primary">{stats.appointmentCount}</p>
+                            <p className="text-sm text-muted-foreground">Appointment{stats.appointmentCount !== 1 ? 's' : ''}</p>
+                          </div>
+                          <div className="text-center p-3 bg-accent/20 rounded-lg">
+                            <p className="text-2xl font-bold text-primary">{stats.invoiceCount}</p>
+                            <p className="text-sm text-muted-foreground">Invoice{stats.invoiceCount !== 1 ? 's' : ''}</p>
+                          </div>
+                          <div className="text-center p-3 bg-accent/20 rounded-lg">
+                            <p className="text-2xl font-bold text-primary">${stats.totalSpent.toFixed(2)}</p>
+                            <p className="text-sm text-muted-foreground">Total Spent</p>
+                          </div>
+                          <div className="text-center p-3 bg-accent/20 rounded-lg">
+                            <p className="text-2xl font-bold text-primary">
+                              {stats.lastService ? format(stats.lastService, "MMM dd") : 'Never'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">Last Service</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Service History */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Service History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const vehicleAppointments = appointments
+                      .filter(a => a.vehicleId === viewingVehicle.id)
+                      .sort((a, b) => b.date.getTime() - a.date.getTime())
+                      .slice(0, 10);
+                    
+                    return vehicleAppointments.length > 0 ? (
+                      <div className="space-y-3">
+                        {vehicleAppointments.map((appointment) => (
+                          <div key={appointment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <p className="font-medium">{appointment.service}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {format(appointment.date, "MMM dd, yyyy")} at {appointment.time}
+                              </p>
+                              {appointment.notes && (
+                                <p className="text-sm text-muted-foreground mt-1">
+                                  Notes: {appointment.notes}
+                                </p>
+                              )}
+                            </div>
+                            <Badge variant={appointment.status === 'completed' ? 'default' : 'secondary'}>
+                              {appointment.status}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-4">No service history found</p>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              {/* Invoice History */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Invoice History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    const vehicleInvoices = invoices
+                      .filter(i => i.vehicleId === viewingVehicle.id)
+                      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+                      .slice(0, 10);
+                    
+                    return vehicleInvoices.length > 0 ? (
+                      <div className="space-y-3">
+                        {vehicleInvoices.map((invoice) => (
+                          <div key={invoice.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <p className="font-medium">{invoice.invoiceNumber}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {format(invoice.createdAt, "MMM dd, yyyy")} • Due: {format(invoice.dueDate, "MMM dd, yyyy")}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold">${invoice.total.toFixed(2)}</p>
+                              <Badge variant={
+                                invoice.status === 'paid' ? 'default' : 
+                                invoice.status === 'overdue' ? 'destructive' : 'secondary'
+                              }>
+                                {invoice.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-center py-4">No invoices found</p>
+                    );
+                  })()}
+                </CardContent>
+              </Card>
+
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    setEditingVehicle({ ...viewingVehicle });
+                    setIsVehicleViewDialogOpen(false);
+                    setIsVehicleEditDialogOpen(true);
+                  }}
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Vehicle
+                </Button>
+                <Button variant="outline" onClick={() => setIsVehicleViewDialogOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 
