@@ -43,6 +43,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -53,6 +54,10 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { ProductsContent } from "@/components/ProductsContent";
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
 // Types
 interface Customer {
@@ -2013,8 +2018,35 @@ export default function BusinessManagementApp() {
   );
 
   const AppointmentsContent = () => {
+    const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
+    const calendarEvents = appointments.map(appointment => {
+      const customer = customers.find(c => c.id === appointment.customerId);
+      const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
+      const start = new Date(appointment.date);
+      const [hours, minutes] = appointment.time.split(/:| /);
+      let hour = parseInt(hours);
+      if (appointment.time.includes('PM') && hour !== 12) {
+        hour += 12;
+      }
+      if (appointment.time.includes('AM') && hour === 12) {
+        hour = 0;
+      }
+      start.setHours(hour, parseInt(minutes) || 0);
+
+      return {
+        id: appointment.id,
+        title: `${appointment.service} - ${customer?.name}`,
+        start,
+        extendedProps: {
+          ...appointment,
+          customer,
+          vehicle
+        }
+      };
+    });
 
     const filteredAppointments = appointments.filter(appointment => {
       const customer = customers.find(c => c.id === appointment.customerId);
@@ -2051,238 +2083,278 @@ export default function BusinessManagementApp() {
             <h2 className="text-3xl font-bold text-primary">Appointments</h2>
             <p className="text-muted-foreground">Schedule and manage appointments</p>
           </div>
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Schedule Appointment
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Schedule New Appointment</DialogTitle>
-                <DialogDescription>Book a service appointment</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="apt-customer">Customer</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+          <div className="flex items-center space-x-2">
+            <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as any)} aria-label="View mode">
+              <ToggleGroupItem value="list" aria-label="List view">
+                List
+              </ToggleGroupItem>
+              <ToggleGroupItem value="calendar" aria-label="Calendar view">
+                Calendar
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Schedule Appointment
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Schedule New Appointment</DialogTitle>
+                  <DialogDescription>Book a service appointment</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="apt-customer">Customer</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="apt-vehicle">Vehicle</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select vehicle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vehicles.map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id}>
+                            {vehicle.year} {vehicle.make} {vehicle.model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="apt-service">Service Type</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select service" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="oil-change">Oil Change</SelectItem>
+                        <SelectItem value="brake-service">Brake Service</SelectItem>
+                        <SelectItem value="tire-rotation">Tire Rotation</SelectItem>
+                        <SelectItem value="inspection">General Inspection</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="apt-date">Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={setSelectedDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <Label htmlFor="apt-time">Time</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="08:00">8:00 AM</SelectItem>
+                        <SelectItem value="09:00">9:00 AM</SelectItem>
+                        <SelectItem value="10:00">10:00 AM</SelectItem>
+                        <SelectItem value="11:00">11:00 AM</SelectItem>
+                        <SelectItem value="13:00">1:00 PM</SelectItem>
+                        <SelectItem value="14:00">2:00 PM</SelectItem>
+                        <SelectItem value="15:00">3:00 PM</SelectItem>
+                        <SelectItem value="16:00">4:00 PM</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="apt-notes">Notes</Label>
+                    <Textarea id="apt-notes" placeholder="Special instructions or concerns..." />
+                  </div>
+                  <Button className="w-full">Schedule Appointment</Button>
                 </div>
-                <div>
-                  <Label htmlFor="apt-vehicle">Vehicle</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select vehicle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicles.map((vehicle) => (
-                        <SelectItem key={vehicle.id} value={vehicle.id}>
-                          {vehicle.year} {vehicle.make} {vehicle.model}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="apt-service">Service Type</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select service" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="oil-change">Oil Change</SelectItem>
-                      <SelectItem value="brake-service">Brake Service</SelectItem>
-                      <SelectItem value="tire-rotation">Tire Rotation</SelectItem>
-                      <SelectItem value="inspection">General Inspection</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="apt-date">Date</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !selectedDate && "text-muted-foreground"
-                        )}
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <CalendarComponent
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <div>
-                  <Label htmlFor="apt-time">Time</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select time" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="08:00">8:00 AM</SelectItem>
-                      <SelectItem value="09:00">9:00 AM</SelectItem>
-                      <SelectItem value="10:00">10:00 AM</SelectItem>
-                      <SelectItem value="11:00">11:00 AM</SelectItem>
-                      <SelectItem value="13:00">1:00 PM</SelectItem>
-                      <SelectItem value="14:00">2:00 PM</SelectItem>
-                      <SelectItem value="15:00">3:00 PM</SelectItem>
-                      <SelectItem value="16:00">4:00 PM</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="apt-notes">Notes</Label>
-                  <Textarea id="apt-notes" placeholder="Special instructions or concerns..." />
-                </div>
-                <Button className="w-full">Schedule Appointment</Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </motion.div>
 
         <motion.div variants={fadeInUp}>
-          <div className="flex space-x-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search appointments by service, customer, or vehicle..."
-                className="pl-10"
-                value={appointmentSearchTerm}
-                onChange={(e) => setAppointmentSearchTerm(e.target.value)}
-              />
-            </div>
-            <Select value={appointmentFilter} onValueChange={(value) => setAppointmentFilter(value as 'all' | 'upcoming' | 'today' | 'past')}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Filter appointments" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Appointments</SelectItem>
-                <SelectItem value="today">Today</SelectItem>
-                <SelectItem value="upcoming">Upcoming</SelectItem>
-                <SelectItem value="past">Past</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {viewMode === 'list' && (
+            <>
+              <div className="flex space-x-4 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search appointments by service, customer, or vehicle..."
+                    className="pl-10"
+                    value={appointmentSearchTerm}
+                    onChange={(e) => setAppointmentSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Select value={appointmentFilter} onValueChange={(value) => setAppointmentFilter(value as 'all' | 'upcoming' | 'today' | 'past')}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Filter appointments" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Appointments</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="upcoming">Upcoming</SelectItem>
+                    <SelectItem value="past">Past</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
-          <div className="grid gap-4">
-            {filteredAppointments.length > 0 ? (
-              filteredAppointments.map((appointment) => {
-                const customer = customers.find(c => c.id === appointment.customerId);
-                const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
-                const isUpcoming = appointment.date >= today;
-                
-                return (
-                  <Card key={appointment.id} className="hover:bg-accent/50 transition-colors">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
-                            <Calendar className="h-8 w-8 text-white" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-lg">{appointment.service}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {customer?.name} - {vehicle?.year} {vehicle?.make} {vehicle?.model}
-                            </p>
-                            <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
-                              <span>{format(appointment.date, "PPP")}</span>
-                              <span>{appointment.time}</span>
-                              {!isUpcoming && (
-                                <span className="text-orange-600">Past</span>
-                              )}
+              <div className="grid gap-4">
+                {filteredAppointments.length > 0 ? (
+                  filteredAppointments.map((appointment) => {
+                    const customer = customers.find(c => c.id === appointment.customerId);
+                    const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
+                    const isUpcoming = appointment.date >= today;
+                    
+                    return (
+                      <Card key={appointment.id} className="hover:bg-accent/50 transition-colors">
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-blue-600 rounded-lg flex items-center justify-center">
+                                <Calendar className="h-8 w-8 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-lg">{appointment.service}</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  {customer?.name} - {vehicle?.year} {vehicle?.make} {vehicle?.model}
+                                </p>
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+                                  <span>{format(appointment.date, "PPP")}</span>
+                                  <span>{appointment.time}</span>
+                                  {!isUpcoming && (
+                                    <span className="text-orange-600">Past</span>
+                                  )}
+                                </div>
+                                {appointment.notes && (
+                                  <p className="text-sm text-muted-foreground mt-1">
+                                    Notes: {appointment.notes}
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                            {appointment.notes && (
-                              <p className="text-sm text-muted-foreground mt-1">
-                                Notes: {appointment.notes}
-                              </p>
-                            )}
+                            <div className="flex items-center space-x-2">
+                              <Badge variant={
+                                appointment.status === 'completed' ? 'default' : 
+                                appointment.status === 'in-progress' ? 'secondary' :
+                                appointment.status === 'cancelled' ? 'destructive' : 'outline'
+                              }>
+                                {appointment.status}
+                              </Badge>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setViewingAppointment(appointment);
+                                  setIsAppointmentViewDialogOpen(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setEditingAppointment({ ...appointment });
+                                  setIsAppointmentEditDialogOpen(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleDeleteAppointment(appointment.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={
-                            appointment.status === 'completed' ? 'default' : 
-                            appointment.status === 'in-progress' ? 'secondary' :
-                            appointment.status === 'cancelled' ? 'destructive' : 'outline'
-                          }>
-                            {appointment.status}
-                          </Badge>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              setViewingAppointment(appointment);
-                              setIsAppointmentViewDialogOpen(true);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              setEditingAppointment({ ...appointment });
-                              setIsAppointmentEditDialogOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleDeleteAppointment(appointment.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })
+                ) : (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">
+                        {appointmentSearchTerm || appointmentFilter !== 'all' ? 'No appointments found' : 'No appointments yet'}
+                      </h3>
+                      <p className="text-muted-foreground mb-4">
+                        {appointmentSearchTerm || appointmentFilter !== 'all'
+                          ? 'Try adjusting your search terms or filters.'
+                          : 'Schedule your first appointment to get started.'
+                        }
+                      </p>
+                      {!appointmentSearchTerm && appointmentFilter === 'all' && (
+                        <Button>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Schedule First Appointment
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
-                );
-              })
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">
-                    {appointmentSearchTerm || appointmentFilter !== 'all' ? 'No appointments found' : 'No appointments yet'}
-                  </h3>
-                  <p className="text-muted-foreground mb-4">
-                    {appointmentSearchTerm || appointmentFilter !== 'all'
-                      ? 'Try adjusting your search terms or filters.'
-                      : 'Schedule your first appointment to get started.'
-                    }
-                  </p>
-                  {!appointmentSearchTerm && appointmentFilter === 'all' && (
-                    <Button>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Schedule First Appointment
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {viewMode === 'calendar' && (
+            <Card className="p-4">
+              <FullCalendar
+                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                headerToolbar={{
+                  left: 'prev,next today',
+                  center: 'title',
+                  right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                }}
+                events={calendarEvents}
+                eventClick={(info) => {
+                  const appointment = appointments.find(a => a.id === info.event.id);
+                  if (appointment) {
+                    setViewingAppointment(appointment);
+                    setIsAppointmentViewDialogOpen(true);
+                  }
+                }}
+                editable={true}
+                selectable={true}
+                selectMirror={true}
+                dayMaxEvents={true}
+              />
+            </Card>
+          )}
         </motion.div>
 
         {/* Edit Appointment Dialog */}

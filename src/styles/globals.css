@@ -62,6 +62,47 @@
     --chart-5: 340 75% 55%
   }
 }
+
+.fc {
+  --fc-border-color: hsl(var(--border));
+  --fc-daygrid-event-dot-width: 8px;
+  --fc-list-event-dot-width: 10px;
+  --fc-event-bg-color: hsl(var(--primary));
+  --fc-event-border-color: hsl(var(--primary));
+  --fc-event-text-color: hsl(var(--primary-foreground));
+  --fc-more-link-bg-color: hsl(var(--muted));
+  --fc-more-link-text-color: hsl(var(--muted-foreground));
+  --fc-today-bg-color: hsla(var(--primary) / 0.1);
+  --fc-day-today-bg-color: hsla(var(--primary) / 0.1);
+}
+
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number,
+.fc .fc-list-day-text,
+.fc .fc-list-day-side-text {
+  color: hsl(var(--foreground));
+  text-decoration: none;
+}
+
+.fc .fc-button {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: none;
+}
+
+.fc .fc-button:hover {
+  background-color: hsl(var(--primary) / 0.9);
+}
+
+.fc .fc-button-primary:disabled {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+.fc .fc-daygrid-day.fc-day-today {
+  background-color: hsla(var(--primary) / 0.05);
+}
+
 @layer base {
   * {
     @apply border-border;
