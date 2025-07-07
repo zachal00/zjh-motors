@@ -365,6 +365,11 @@ export default function BusinessManagementApp() {
   const [currentInvoice, setCurrentInvoice] = useState<Partial<Invoice> | null>(null);
   const [isCreatingInvoice, setIsCreatingInvoice] = useState(false);
 
+  const [isAddCustomerDialogOpen, setIsAddCustomerDialogOpen] = useState(false);
+  const [isAddAppointmentDialogOpen, setIsAddAppointmentDialogOpen] = useState(false);
+  const [isAddInvoiceDialogOpen, setIsAddInvoiceDialogOpen] = useState(false);
+  const [isAddServiceCheckDialogOpen, setIsAddServiceCheckDialogOpen] = useState(false);
+
   // Invoice management states
   const [isInvoiceViewDialogOpen, setIsInvoiceViewDialogOpen] = useState(false);
   const [isInvoiceEditDialogOpen, setIsInvoiceEditDialogOpen] = useState(false);
@@ -1016,19 +1021,19 @@ export default function BusinessManagementApp() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-4">
-                <Button className="h-20 flex-col space-y-2" variant="outline">
+                <Button className="h-20 flex-col space-y-2" variant="outline" onClick={() => { setActiveTab('customers'); setIsAddCustomerDialogOpen(true); }}>
                   <Plus className="h-6 w-6" />
                   <span>New Customer</span>
                 </Button>
-                <Button className="h-20 flex-col space-y-2" variant="outline">
+                <Button className="h-20 flex-col space-y-2" variant="outline" onClick={() => { setActiveTab('appointments'); setIsAddAppointmentDialogOpen(true); }}>
                   <Calendar className="h-6 w-6" />
                   <span>Schedule</span>
                 </Button>
-                <Button className="h-20 flex-col space-y-2" variant="outline">
+                <Button className="h-20 flex-col space-y-2" variant="outline" onClick={() => { setActiveTab('invoices'); setIsAddInvoiceDialogOpen(true); }}>
                   <FileText className="h-6 w-6" />
                   <span>Create Invoice</span>
                 </Button>
-                <Button className="h-20 flex-col space-y-2" variant="outline">
+                <Button className="h-20 flex-col space-y-2" variant="outline" onClick={() => { setActiveTab('service-checks'); setIsAddServiceCheckDialogOpen(true); }}>
                   <CheckSquare className="h-6 w-6" />
                   <span>Service Check</span>
                 </Button>
@@ -1044,7 +1049,6 @@ export default function BusinessManagementApp() {
     const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', address: '' });
     const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
     const [viewingCustomer, setViewingCustomer] = useState<Customer | null>(null);
-    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
     const [customerFilter, setCustomerFilter] = useState('all');
@@ -1080,7 +1084,7 @@ export default function BusinessManagementApp() {
 
       setCustomers(prev => [...prev, customer]);
       setNewCustomer({ name: '', email: '', phone: '', address: '' });
-      setIsAddDialogOpen(false);
+      setIsAddCustomerDialogOpen(false);
       alert('Customer added successfully!');
     };
 
@@ -1146,7 +1150,7 @@ export default function BusinessManagementApp() {
             <h2 className="text-3xl font-bold text-primary">Customers</h2>
             <p className="text-muted-foreground">Manage your customer database</p>
           </div>
-          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <Dialog open={isAddCustomerDialogOpen} onOpenChange={setIsAddCustomerDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -1198,7 +1202,7 @@ export default function BusinessManagementApp() {
                 </div>
                 <div className="flex space-x-2">
                   <Button className="flex-1" onClick={handleAddCustomer}>Add Customer</Button>
-                  <Button variant="outline" className="flex-1" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setIsAddCustomerDialogOpen(false)}>Cancel</Button>
                 </div>
               </div>
             </DialogContent>
@@ -1315,7 +1319,7 @@ export default function BusinessManagementApp() {
                     }
                   </p>
                   {!searchTerm && (
-                    <Button onClick={() => setIsAddDialogOpen(true)}>
+                    <Button onClick={() => setIsAddCustomerDialogOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
                       Add First Customer
                     </Button>
@@ -2092,7 +2096,7 @@ export default function BusinessManagementApp() {
                 Calendar
               </ToggleGroupItem>
             </ToggleGroup>
-            <Dialog>
+            <Dialog open={isAddAppointmentDialogOpen} onOpenChange={setIsAddAppointmentDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
@@ -2318,7 +2322,7 @@ export default function BusinessManagementApp() {
                         }
                       </p>
                       {!appointmentSearchTerm && appointmentFilter === 'all' && (
-                        <Button>
+                        <Button onClick={() => setIsAddAppointmentDialogOpen(true)}>
                           <Plus className="mr-2 h-4 w-4" />
                           Schedule First Appointment
                         </Button>
@@ -2725,6 +2729,7 @@ export default function BusinessManagementApp() {
         }
 
         resetInvoiceForm();
+        setIsAddInvoiceDialogOpen(false);
         alert(`Invoice ${newInvoice.invoiceNumber} ${sendImmediately ? 'created and sent' : 'created'} successfully!`);
       } catch (error) {
         console.error('Error creating invoice:', error);
@@ -2795,7 +2800,7 @@ export default function BusinessManagementApp() {
             <h2 className="text-3xl font-bold text-primary">Invoices</h2>
             <p className="text-muted-foreground">Create and manage invoices</p>
           </div>
-          <Dialog>
+          <Dialog open={isAddInvoiceDialogOpen} onOpenChange={setIsAddInvoiceDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -3150,7 +3155,7 @@ export default function BusinessManagementApp() {
                     }
                   </p>
                   {!invoiceSearchTerm && invoiceFilter === 'all' && (
-                    <Button>
+                    <Button onClick={() => setIsAddInvoiceDialogOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
                       Create First Invoice
                     </Button>
@@ -3521,7 +3526,6 @@ export default function BusinessManagementApp() {
       }
     ]);
 
-    const [isServiceCheckCreateDialogOpen, setIsServiceCheckCreateDialogOpen] = useState(false);
     const [isServiceCheckViewDialogOpen, setIsServiceCheckViewDialogOpen] = useState(false);
     const [isServiceCheckEditDialogOpen, setIsServiceCheckEditDialogOpen] = useState(false);
     const [viewingServiceCheck, setViewingServiceCheck] = useState<ServiceCheck | null>(null);
@@ -3580,7 +3584,7 @@ export default function BusinessManagementApp() {
           { id: '8', name: 'Belts & Hoses', status: 'good', notes: '', photos: [] }
         ]
       });
-      setIsServiceCheckCreateDialogOpen(false);
+      setIsAddServiceCheckDialogOpen(false);
       alert('Service check created successfully!');
     };
 
@@ -3715,7 +3719,7 @@ export default function BusinessManagementApp() {
             <h2 className="text-3xl font-bold text-primary">Service Checks</h2>
             <p className="text-muted-foreground">Digital inspection forms with comprehensive vehicle checks</p>
           </div>
-          <Dialog open={isServiceCheckCreateDialogOpen} onOpenChange={setIsServiceCheckCreateDialogOpen}>
+          <Dialog open={isAddServiceCheckDialogOpen} onOpenChange={setIsAddServiceCheckDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -3842,7 +3846,7 @@ export default function BusinessManagementApp() {
                     <Button className="flex-1" onClick={handleCreateServiceCheck}>
                       Complete Service Check
                     </Button>
-                    <Button variant="outline" className="flex-1" onClick={() => setIsServiceCheckCreateDialogOpen(false)}>
+                    <Button variant="outline" className="flex-1" onClick={() => setIsAddServiceCheckDialogOpen(false)}>
                       Cancel
                     </Button>
                   </div>
@@ -3969,7 +3973,7 @@ export default function BusinessManagementApp() {
                     }
                   </p>
                   {!serviceCheckSearchTerm && serviceCheckFilter === 'all' && (
-                    <Button onClick={() => setIsServiceCheckCreateDialogOpen(true)}>
+                    <Button onClick={() => setIsAddServiceCheckDialogOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
                       Create First Service Check
                     </Button>
