@@ -52,6 +52,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
+import { ProductsContent } from "@/components/ProductsContent";
 
 // Types
 interface Customer {
@@ -4168,104 +4169,6 @@ export default function BusinessManagementApp() {
     );
   };
 
-  const ProductsContent = () => (
-    <motion.div
-      variants={staggerContainer}
-      initial="initial"
-      animate="animate"
-      className="space-y-6"
-    >
-      <motion.div variants={fadeInUp} className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold text-primary">Products & Services</h2>
-          <p className="text-muted-foreground">Manage your inventory and service catalog</p>
-        </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Product
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Add New Product/Service</DialogTitle>
-              <DialogDescription>Add items to your catalog</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="prod-name">Name</Label>
-                <Input id="prod-name" placeholder="Product or service name" />
-              </div>
-              <div>
-                <Label htmlFor="prod-description">Description</Label>
-                <Textarea id="prod-description" placeholder="Detailed description" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="prod-price">Price</Label>
-                  <Input id="prod-price" type="number" step="0.01" placeholder="0.00" />
-                </div>
-                <div>
-                  <Label htmlFor="prod-category">Category</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="service">Service</SelectItem>
-                      <SelectItem value="parts">Parts</SelectItem>
-                      <SelectItem value="fluids">Fluids</SelectItem>
-                      <SelectItem value="accessories">Accessories</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="prod-stock">Stock Quantity</Label>
-                <Input id="prod-stock" type="number" placeholder="0" />
-              </div>
-              <Button className="w-full">Add Product</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </motion.div>
-
-      <motion.div variants={fadeInUp}>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => (
-            <Card key={product.id} className="hover:bg-accent/50 transition-colors">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
-                    <Package className="h-6 w-6 text-white" />
-                  </div>
-                  <Badge variant="outline">{product.category}</Badge>
-                </div>
-                <h3 className="font-semibold text-lg mb-2">{product.name}</h3>
-                <p className="text-sm text-muted-foreground mb-4">{product.description}</p>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-2xl font-bold text-primary">${product.price}</p>
-                    <p className="text-sm text-muted-foreground">Stock: {product.stock}</p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-
   const EstimatesContent = () => {
     const [selectedCustomerId, setSelectedCustomerId] = useState('');
     const [selectedVehicleId, setSelectedVehicleId] = useState('');
@@ -5422,7 +5325,15 @@ export default function BusinessManagementApp() {
       case 'service-checks':
         return <ServiceChecksContent />;
       case 'products':
-        return <ProductsContent />;
+        return <ProductsContent 
+          products={products}
+          setProducts={setProducts}
+          invoices={invoices}
+          estimates={estimates}
+          customers={customers}
+          fadeInUp={fadeInUp}
+          staggerContainer={staggerContainer}
+        />;
       case 'website':
         return <WebsiteContent />;
       case 'estimates':
