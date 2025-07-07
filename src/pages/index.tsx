@@ -886,7 +886,8 @@ export default function BusinessManagementApp() {
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'customers', label: 'Customers', icon: Users },
     { id: 'vehicles', label: 'Vehicles', icon: Car },
-    { id: 'appointments', label: 'Appointments', icon: Calendar },
+    { id: 'appointments', label: 'Appointments', icon: Clock },
+    { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'invoices', label: 'Invoices', icon: FileText },
     { id: 'estimates', label: 'Estimates', icon: Calculator },
     { id: 'service-checks', label: 'Service Checks', icon: CheckSquare },
@@ -2022,35 +2023,8 @@ export default function BusinessManagementApp() {
   );
 
   const AppointmentsContent = () => {
-    const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    const calendarEvents = appointments.map(appointment => {
-      const customer = customers.find(c => c.id === appointment.customerId);
-      const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
-      const start = new Date(appointment.date);
-      const [hours, minutes] = appointment.time.split(/:| /);
-      let hour = parseInt(hours);
-      if (appointment.time.includes('PM') && hour !== 12) {
-        hour += 12;
-      }
-      if (appointment.time.includes('AM') && hour === 12) {
-        hour = 0;
-      }
-      start.setHours(hour, parseInt(minutes) || 0);
-
-      return {
-        id: appointment.id,
-        title: `${appointment.service} - ${customer?.name}`,
-        start,
-        extendedProps: {
-          ...appointment,
-          customer,
-          vehicle
-        }
-      };
-    });
 
     const filteredAppointments = appointments.filter(appointment => {
       const customer = customers.find(c => c.id === appointment.customerId);
@@ -2088,14 +2062,6 @@ export default function BusinessManagementApp() {
             <p className="text-muted-foreground">Schedule and manage appointments</p>
           </div>
           <div className="flex items-center space-x-2">
-            <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as any)} aria-label="View mode">
-              <ToggleGroupItem value="list" aria-label="List view">
-                List
-              </ToggleGroupItem>
-              <ToggleGroupItem value="calendar" aria-label="Calendar view">
-                Calendar
-              </ToggleGroupItem>
-            </ToggleGroup>
             <Dialog open={isAddAppointmentDialogOpen} onOpenChange={setIsAddAppointmentDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -2208,8 +2174,7 @@ export default function BusinessManagementApp() {
         </motion.div>
 
         <motion.div variants={fadeInUp}>
-          {viewMode === 'list' && (
-            <>
+          <>
               <div className="flex space-x-4 mb-6">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -2332,33 +2297,6 @@ export default function BusinessManagementApp() {
                 )}
               </div>
             </>
-          )}
-
-          {viewMode === 'calendar' && (
-            <Card className="p-4">
-              <FullCalendar
-                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                initialView="dayGridMonth"
-                headerToolbar={{
-                  left: 'prev,next today',
-                  center: 'title',
-                  right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                }}
-                events={calendarEvents}
-                eventClick={(info) => {
-                  const appointment = appointments.find(a => a.id === info.event.id);
-                  if (appointment) {
-                    setViewingAppointment(appointment);
-                    setIsAppointmentViewDialogOpen(true);
-                  }
-                }}
-                editable={true}
-                selectable={true}
-                selectMirror={true}
-                dayMaxEvents={true}
-              />
-            </Card>
-          )}
         </motion.div>
 
         {/* Edit Appointment Dialog */}
@@ -2650,6 +2588,183 @@ export default function BusinessManagementApp() {
             )}
           </DialogContent>
         </Dialog>
+      </motion.div>
+    );
+  };
+
+  const CalendarContent = () => {
+    const calendarEvents = appointments.map(appointment => {
+      const customer = customers.find(c => c.id === appointment.customerId);
+      const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
+      const start = new Date(appointment.date);
+      const [hours, minutes] = appointment.time.split(/:| /);
+      let hour = parseInt(hours);
+      if (appointment.time.includes('PM') && hour !== 12) {
+        hour += 12;
+      }
+      if (appointment.time.includes('AM') && hour === 12) {
+        hour = 0;
+      }
+      start.setHours(hour, parseInt(minutes) || 0);
+
+      return {
+        id: appointment.id,
+        title: `${appointment.service} - ${customer?.name}`,
+        start,
+        extendedProps: {
+          ...appointment,
+          customer,
+          vehicle
+        }
+      };
+    });
+
+    return (
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="space-y-6"
+      >
+        <motion.div variants={fadeInUp} className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold text-primary">Calendar</h2>
+            <p className="text-muted-foreground">View and manage appointments in a calendar view</p>
+          </div>
+          <Dialog open={isAddAppointmentDialogOpen} onOpenChange={setIsAddAppointmentDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Schedule Appointment
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Schedule New Appointment</DialogTitle>
+                  <DialogDescription>Book a service appointment</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="apt-customer">Customer</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="apt-vehicle">Vehicle</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select vehicle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vehicles.map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id}>
+                            {vehicle.year} {vehicle.make} {vehicle.model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="apt-service">Service Type</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select service" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="oil-change">Oil Change</SelectItem>
+                        <SelectItem value="brake-service">Brake Service</SelectItem>
+                        <SelectItem value="tire-rotation">Tire Rotation</SelectItem>
+                        <SelectItem value="inspection">General Inspection</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="apt-date">Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !selectedDate && "text-muted-foreground"
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={setSelectedDate}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <Label htmlFor="apt-time">Time</Label>
+                    <Select>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="08:00">8:00 AM</SelectItem>
+                        <SelectItem value="09:00">9:00 AM</SelectItem>
+                        <SelectItem value="10:00">10:00 AM</SelectItem>
+                        <SelectItem value="11:00">11:00 AM</SelectItem>
+                        <SelectItem value="13:00">1:00 PM</SelectItem>
+                        <SelectItem value="14:00">2:00 PM</SelectItem>
+                        <SelectItem value="15:00">3:00 PM</SelectItem>
+                        <SelectItem value="16:00">4:00 PM</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="apt-notes">Notes</Label>
+                    <Textarea id="apt-notes" placeholder="Special instructions or concerns..." />
+                  </div>
+                  <Button className="w-full">Schedule Appointment</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+        </motion.div>
+        <motion.div variants={fadeInUp}>
+          <Card className="p-4">
+            <FullCalendar
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+              initialView="dayGridMonth"
+              headerToolbar={{
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+              }}
+              events={calendarEvents}
+              eventClick={(info) => {
+                const appointment = appointments.find(a => a.id === info.event.id);
+                if (appointment) {
+                  setViewingAppointment(appointment);
+                  setIsAppointmentViewDialogOpen(true);
+                }
+              }}
+              editable={true}
+              selectable={true}
+              selectMirror={true}
+              dayMaxEvents={true}
+            />
+          </Card>
+        </motion.div>
       </motion.div>
     );
   };
@@ -5396,6 +5511,8 @@ export default function BusinessManagementApp() {
         return <VehiclesContent />;
       case 'appointments':
         return <AppointmentsContent />;
+      case 'calendar':
+        return <CalendarContent />;
       case 'invoices':
         return <InvoicesContent />;
       case 'service-checks':
