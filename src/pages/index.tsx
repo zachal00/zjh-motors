@@ -366,6 +366,14 @@ export default function BusinessManagementApp() {
   const [invoiceSearchTerm, setInvoiceSearchTerm] = useState('');
   const [invoiceFilter, setInvoiceFilter] = useState<'all' | 'paid' | 'sent' | 'draft' | 'overdue'>('all');
 
+  // Estimate management states
+  const [isEstimateViewDialogOpen, setIsEstimateViewDialogOpen] = useState(false);
+  const [isEstimateEditDialogOpen, setIsEstimateEditDialogOpen] = useState(false);
+  const [viewingEstimate, setViewingEstimate] = useState<Estimate | null>(null);
+  const [editingEstimate, setEditingEstimate] = useState<Estimate | null>(null);
+  const [estimateSearchTerm, setEstimateSearchTerm] = useState('');
+  const [estimateFilter, setEstimateFilter] = useState<'all' | 'draft' | 'sent' | 'approved' | 'declined' | 'expired'>('all');
+
   // Vehicle management states
   const [isVehicleViewDialogOpen, setIsVehicleViewDialogOpen] = useState(false);
   const [isVehicleEditDialogOpen, setIsVehicleEditDialogOpen] = useState(false);
@@ -680,6 +688,80 @@ export default function BusinessManagementApp() {
       return true;
     } catch (error) {
       console.error('Error sending estimate email:', error);
+      throw error;
+    }
+  };
+
+  const handleEditEstimate = () => {
+    if (!editingEstimate || !editingEstimate.customerId || !editingEstimate.vehicleId || editingEstimate.items.length === 0) {
+      alert('Please fill in all required fields and add at least one item.');
+      return;
+    }
+
+    // Recalculate totals
+    const totals = calculateInvoiceTotals(editingEstimate.items, editingEstimate.taxRate);
+    const updatedEstimate = {
+      ...editingEstimate,
+      subtotal: totals.subtotal,
+      tax: totals.tax,
+      total: totals.total
+    };
+
+    setEstimates(prev => prev.map(estimate => 
+      estimate.id === editingEstimate.id ? updatedEstimate : estimate
+    ));
+    setEditingEstimate(null);
+    setIsEstimateEditDialogOpen(false);
+    alert('Estimate updated successfully!');
+  };
+
+  const handleDeleteEstimate = (estimateId: string) => {
+    if (confirm('Are you sure you want to delete this estimate? This action cannot be undone.')) {
+      setEstimates(prev => prev.filter(estimate => estimate.id !== estimateId));
+      alert('Estimate deleted successfully!');
+    }
+  };
+
+  const getEstimateStats = (estimateId: string) => {
+    const estimate = estimates.find(e => e.id === estimateId);
+    if (!estimate) return null;
+
+    const customer = customers.find(c => c.id === estimate.customerId);
+    const vehicle = vehicles.find(v => v.id === estimate.vehicleId);
+    const relatedAppointments = appointments.filter(a => 
+      a.customerId === estimate.customerId && a.vehicleId === estimate.vehicleId
+    );
+
+    return {
+      customer,
+      vehicle,
+      relatedAppointments: relatedAppointments.length,
+      isExpired: estimate.status !== 'approved' && estimate.validUntil < new Date(),
+      daysSinceCreated: Math.floor((new Date().getTime() - estimate.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+    };
+  };
+
+  const generateEstimatePDF = async (estimate: Estimate) => {
+    // This would integrate with jsPDF to generate a PDF
+    // For now, we'll simulate the process
+    try {
+      const customer = customers.find(c => c.id === estimate.customerId);
+      const vehicle = vehicles.find(v => v.id === estimate.vehicleId);
+      
+      if (!customer || !vehicle) {
+        throw new Error('Customer or vehicle not found');
+      }
+
+      // In a real implementation, you would use jsPDF here
+      console.log('Generating PDF for estimate:', estimate.estimateNumber);
+      
+      // Simulate PDF generation delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Return a blob URL for download (simulated)
+      return `data:application/pdf;base64,simulated-pdf-content-for-${estimate.estimateNumber}`;
+    } catch (error) {
+      console.error('Error generating PDF:', error);
       throw error;
     }
   };
@@ -3950,9 +4032,11 @@ export default function BusinessManagementApp() {
               <Input
                 placeholder="Search estimates..."
                 className="pl-10"
+                value={estimateSearchTerm}
+                onChange={(e) => setEstimateSearchTerm(e.target.value)}
               />
             </div>
-            <Select defaultValue="all">
+            <Select value={estimateFilter} onValueChange={(value) => setEstimateFilter(value as 'all' | 'draft' | 'sent' | 'approved' | 'declined' | 'expired')}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
@@ -3968,96 +4052,470 @@ export default function BusinessManagementApp() {
           </div>
 
           <div className="grid gap-4">
-            {estimates.length > 0 ? (
-              estimates.map((estimate) => {
+            {(() => {
+              const filteredEstimates = estimates.filter(estimate => {
                 const customer = customers.find(c => c.id === estimate.customerId);
                 const vehicle = vehicles.find(v => v.id === estimate.vehicleId);
                 
-                return (
-                  <Card key={estimate.id} className="hover:bg-accent/50 transition-colors">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-teal-600 rounded-lg flex items-center justify-center">
-                            <Calculator className="h-8 w-8 text-white" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-lg">{estimate.estimateNumber}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {customer?.name} - {vehicle?.year} {vehicle?.make} {vehicle?.model}
-                            </p>
-                            <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
-                              <span>Created: {format(estimate.createdAt, "MMM dd, yyyy")}</span>
-                              <span>Valid Until: {format(estimate.validUntil, "MMM dd, yyyy")}</span>
+                const matchesSearch = estimateSearchTerm === '' || 
+                  estimate.estimateNumber.toLowerCase().includes(estimateSearchTerm.toLowerCase()) ||
+                  customer?.name.toLowerCase().includes(estimateSearchTerm.toLowerCase()) ||
+                  vehicle?.make.toLowerCase().includes(estimateSearchTerm.toLowerCase()) ||
+                  vehicle?.model.toLowerCase().includes(estimateSearchTerm.toLowerCase());
+
+                if (estimateFilter === 'all') {
+                  return matchesSearch;
+                }
+                
+                return matchesSearch && estimate.status === estimateFilter;
+              });
+
+              return filteredEstimates.length > 0 ? (
+                filteredEstimates.map((estimate) => {
+                  const customer = customers.find(c => c.id === estimate.customerId);
+                  const vehicle = vehicles.find(v => v.id === estimate.vehicleId);
+                  
+                  return (
+                    <Card key={estimate.id} className="hover:bg-accent/50 transition-colors">
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-teal-600 rounded-lg flex items-center justify-center">
+                              <Calculator className="h-8 w-8 text-white" />
                             </div>
-                            {estimate.convertedToInvoice && (
-                              <p className="text-sm text-green-600 mt-1">
-                                ✓ Converted to Invoice
+                            <div>
+                              <h3 className="font-semibold text-lg">{estimate.estimateNumber}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                {customer?.name} - {vehicle?.year} {vehicle?.make} {vehicle?.model}
                               </p>
-                            )}
+                              <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
+                                <span>Created: {format(estimate.createdAt, "MMM dd, yyyy")}</span>
+                                <span>Valid Until: {format(estimate.validUntil, "MMM dd, yyyy")}</span>
+                              </div>
+                              {estimate.convertedToInvoice && (
+                                <p className="text-sm text-green-600 mt-1">
+                                  ✓ Converted to Invoice
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center space-x-4">
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-primary">${estimate.total.toFixed(2)}</p>
-                            <Badge variant={
-                              estimate.status === 'approved' ? 'default' : 
-                              estimate.status === 'declined' ? 'destructive' : 
-                              estimate.status === 'expired' ? 'destructive' :
-                              estimate.status === 'sent' ? 'secondary' : 'outline'
-                            }>
-                              {estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}
-                            </Badge>
-                          </div>
-                          <div className="flex space-x-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleSendEstimateEmail(estimate)}
-                              disabled={isSending || estimate.convertedToInvoice}
-                            >
-                              <Send className="h-4 w-4" />
-                            </Button>
-                            {estimate.status === 'approved' && !estimate.convertedToInvoice && (
+                          <div className="flex items-center space-x-4">
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-primary">${estimate.total.toFixed(2)}</p>
+                              <Badge variant={
+                                estimate.status === 'approved' ? 'default' : 
+                                estimate.status === 'declined' ? 'destructive' : 
+                                estimate.status === 'expired' ? 'destructive' :
+                                estimate.status === 'sent' ? 'secondary' : 'outline'
+                              }>
+                                {estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}
+                              </Badge>
+                            </div>
+                            <div className="flex space-x-2">
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={() => handleConvertToInvoice(estimate)}
-                                disabled={isConverting}
+                                onClick={() => handleSendEstimateEmail(estimate)}
+                                disabled={isSending || estimate.convertedToInvoice}
                               >
-                                <FileText className="h-4 w-4" />
+                                <Send className="h-4 w-4" />
                               </Button>
-                            )}
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button variant="outline" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
+                              {estimate.status === 'approved' && !estimate.convertedToInvoice && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleConvertToInvoice(estimate)}
+                                  disabled={isConverting}
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setViewingEstimate(estimate);
+                                  setIsEstimateViewDialogOpen(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setEditingEstimate({ ...estimate });
+                                  setIsEstimateEditDialogOpen(true);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleDeleteEstimate(estimate.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              ) : (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Calculator className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold mb-2">
+                      {estimateSearchTerm || estimateFilter !== 'all' ? 'No estimates found' : 'No Estimates Yet'}
+                    </h3>
+                    <p className="text-muted-foreground mb-4">
+                      {estimateSearchTerm || estimateFilter !== 'all'
+                        ? 'Try adjusting your search terms or filters.'
+                        : 'Create your first estimate to provide quotes to potential customers.'
+                      }
+                    </p>
+                    {!estimateSearchTerm && estimateFilter === 'all' && (
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create First Estimate
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })()}
+          </div>
+        </motion.div>
+
+        {/* View Estimate Dialog */}
+        <Dialog open={isEstimateViewDialogOpen} onOpenChange={setIsEstimateViewDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Estimate Details</DialogTitle>
+              <DialogDescription>Complete estimate information</DialogDescription>
+            </DialogHeader>
+            {viewingEstimate && (
+              <div className="space-y-6">
+                {/* Estimate Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-600 rounded-lg flex items-center justify-center">
+                          <Calculator className="h-4 w-4 text-white" />
+                        </div>
+                        <span>{viewingEstimate.estimateNumber}</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span>Customer: {customers.find(c => c.id === viewingEstimate.customerId)?.name}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Car className="h-4 w-4 text-muted-foreground" />
+                        <span>Vehicle: {(() => {
+                          const vehicle = vehicles.find(v => v.id === viewingEstimate.vehicleId);
+                          return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'Unknown';
+                        })()}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>Created: {format(viewingEstimate.createdAt, "MMMM dd, yyyy")}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span>Valid Until: {format(viewingEstimate.validUntil, "MMMM dd, yyyy")}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium">Status:</span>
+                        <Badge variant={
+                          viewingEstimate.status === 'approved' ? 'default' : 
+                          viewingEstimate.status === 'declined' ? 'destructive' : 
+                          viewingEstimate.status === 'expired' ? 'destructive' :
+                          viewingEstimate.status === 'sent' ? 'secondary' : 'outline'
+                        }>
+                          {viewingEstimate.status.charAt(0).toUpperCase() + viewingEstimate.status.slice(1)}
+                        </Badge>
+                      </div>
+                      {viewingEstimate.convertedToInvoice && (
+                        <div className="flex items-center space-x-2">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="text-sm text-green-600">Converted to Invoice</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Estimate Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span>Subtotal:</span>
+                          <span>${viewingEstimate.subtotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Tax ({viewingEstimate.taxRate}%):</span>
+                          <span>${viewingEstimate.tax.toFixed(2)}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex justify-between font-semibold text-lg">
+                          <span>Total:</span>
+                          <span className="text-primary">${viewingEstimate.total.toFixed(2)}</span>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                );
-              })
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Calculator className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No Estimates Yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Create your first estimate to provide quotes to potential customers.
-                  </p>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create First Estimate
+                </div>
+
+                {/* Estimate Items */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Estimate Items</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {viewingEstimate.items.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-muted-foreground">{item.description}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">
+                              {item.quantity} × ${item.price.toFixed(2)}
+                            </p>
+                            <p className="font-semibold">${item.total.toFixed(2)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Notes */}
+                {viewingEstimate.notes && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Notes</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-muted-foreground">{viewingEstimate.notes}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <div className="flex justify-end space-x-2">
+                  <Button 
+                    variant="outline"
+                    onClick={() => {
+                      setEditingEstimate({ ...viewingEstimate });
+                      setIsEstimateViewDialogOpen(false);
+                      setIsEstimateEditDialogOpen(true);
+                    }}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Estimate
                   </Button>
-                </CardContent>
-              </Card>
+                  <Button variant="outline" onClick={() => setIsEstimateViewDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
             )}
-          </div>
-        </motion.div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Estimate Dialog */}
+        <Dialog open={isEstimateEditDialogOpen} onOpenChange={setIsEstimateEditDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Estimate</DialogTitle>
+              <DialogDescription>Update estimate information</DialogDescription>
+            </DialogHeader>
+            {editingEstimate && (
+              <div className="space-y-6">
+                {/* Customer and Vehicle Selection */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-est-customer">Customer *</Label>
+                    <Select 
+                      value={editingEstimate.customerId} 
+                      onValueChange={(value) => setEditingEstimate(prev => prev ? { ...prev, customerId: value } : null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map((customer) => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-est-vehicle">Vehicle *</Label>
+                    <Select 
+                      value={editingEstimate.vehicleId} 
+                      onValueChange={(value) => setEditingEstimate(prev => prev ? { ...prev, vehicleId: value } : null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select vehicle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vehicles.filter(v => v.customerId === editingEstimate.customerId).map((vehicle) => (
+                          <SelectItem key={vehicle.id} value={vehicle.id}>
+                            {vehicle.year} {vehicle.make} {vehicle.model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Estimate Items */}
+                <div>
+                  <Label className="text-base font-semibold">Estimate Items *</Label>
+                  <div className="space-y-3 mt-2">
+                    {editingEstimate.items.map((item, index) => (
+                      <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1">
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-sm text-muted-foreground">{item.description}</p>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
+                            <Label className="text-sm">Qty:</Label>
+                            <Input 
+                              type="number" 
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const newQuantity = parseInt(e.target.value) || 1;
+                                setEditingEstimate(prev => prev ? {
+                                  ...prev,
+                                  items: prev.items.map((i, idx) => 
+                                    idx === index 
+                                      ? { ...i, quantity: newQuantity, total: newQuantity * i.price }
+                                      : i
+                                  )
+                                } : null);
+                              }}
+                              className="w-16" 
+                              min="1"
+                            />
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-muted-foreground">${item.price} each</p>
+                            <p className="font-semibold">${item.total.toFixed(2)}</p>
+                          </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setEditingEstimate(prev => prev ? {
+                                ...prev,
+                                items: prev.items.filter((_, idx) => idx !== index)
+                              } : null);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Estimate Totals */}
+                {editingEstimate.items.length > 0 && (
+                  <div className="border-t pt-4">
+                    <div className="space-y-2 max-w-sm ml-auto">
+                      <div className="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span>${editingEstimate.items.reduce((sum, item) => sum + item.total, 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Tax ({editingEstimate.taxRate}%):</span>
+                        <span>${(editingEstimate.items.reduce((sum, item) => sum + item.total, 0) * (editingEstimate.taxRate / 100)).toFixed(2)}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between font-semibold text-lg">
+                        <span>Total:</span>
+                        <span>${(editingEstimate.items.reduce((sum, item) => sum + item.total, 0) * (1 + editingEstimate.taxRate / 100)).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Information */}
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-est-status">Status</Label>
+                    <Select 
+                      value={editingEstimate.status} 
+                      onValueChange={(value: any) => setEditingEstimate(prev => prev ? { ...prev, status: value } : null)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="sent">Sent</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="declined">Declined</SelectItem>
+                        <SelectItem value="expired">Expired</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-est-notes">Notes & Recommendations</Label>
+                    <Textarea 
+                      id="edit-est-notes" 
+                      value={editingEstimate.notes}
+                      onChange={(e) => setEditingEstimate(prev => prev ? { ...prev, notes: e.target.value } : null)}
+                      placeholder="Additional notes, recommendations, or terms..."
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-est-valid">Valid Until</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {format(editingEstimate.validUntil, "PPP")}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <CalendarComponent
+                          mode="single"
+                          selected={editingEstimate.validUntil}
+                          onSelect={(date) => setEditingEstimate(prev => prev && date ? { ...prev, validUntil: date } : prev)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button className="flex-1" onClick={handleEditEstimate}>Save Changes</Button>
+                  <Button variant="outline" className="flex-1" onClick={() => setIsEstimateEditDialogOpen(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </motion.div>
     );
   };
