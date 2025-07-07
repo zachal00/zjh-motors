@@ -46,6 +46,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
@@ -3417,160 +3418,755 @@ export default function BusinessManagementApp() {
     );
   };
 
-  const ServiceChecksContent = () => (
-    <motion.div
-      variants={staggerContainer}
-      initial="initial"
-      animate="animate"
-      className="space-y-6"
-    >
-      <motion.div variants={fadeInUp} className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold text-primary">Service Checks</h2>
-          <p className="text-muted-foreground">Digital inspection forms with photo attachments</p>
-        </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Service Check
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>Create Service Check</DialogTitle>
-              <DialogDescription>Digital vehicle inspection form</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="sc-customer">Customer</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {customers.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="sc-vehicle">Vehicle</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select vehicle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicles.map((vehicle) => (
-                        <SelectItem key={vehicle.id} value={vehicle.id}>
-                          {vehicle.year} {vehicle.make} {vehicle.model}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+  const ServiceChecksContent = () => {
+    const [serviceChecks, setServiceChecks] = useState<ServiceCheck[]>([
+      {
+        id: '1',
+        customerId: '1',
+        vehicleId: '1',
+        technician: 'Mike Johnson',
+        createdAt: new Date('2024-06-25'),
+        items: [
+          { id: '1', name: 'Engine Oil Level', status: 'good', notes: 'Oil level is adequate', photos: [] },
+          { id: '2', name: 'Brake Fluid', status: 'needs-attention', notes: 'Fluid level slightly low', photos: [] },
+          { id: '3', name: 'Tire Condition', status: 'good', notes: 'Tires in good condition', photos: [] },
+          { id: '4', name: 'Battery', status: 'replace', notes: 'Battery showing signs of corrosion', photos: [] },
+          { id: '5', name: 'Air Filter', status: 'good', notes: 'Clean air filter', photos: [] }
+        ]
+      },
+      {
+        id: '2',
+        customerId: '2',
+        vehicleId: '2',
+        technician: 'Sarah Davis',
+        createdAt: new Date('2024-06-24'),
+        items: [
+          { id: '6', name: 'Engine Oil Level', status: 'good', notes: 'Fresh oil change', photos: [] },
+          { id: '7', name: 'Brake Pads', status: 'needs-attention', notes: 'Front pads at 30% remaining', photos: [] },
+          { id: '8', name: 'Lights & Signals', status: 'good', notes: 'All lights functioning', photos: [] }
+        ]
+      }
+    ]);
 
-              <div>
-                <Label className="text-base font-semibold">Inspection Items</Label>
-                <div className="space-y-3 mt-2">
-                  {[
-                    'Engine Oil Level',
-                    'Brake Fluid',
-                    'Tire Condition',
-                    'Battery',
-                    'Air Filter',
-                    'Brake Pads',
-                    'Lights & Signals',
-                    'Belts & Hoses'
-                  ].map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                      <span className="font-medium">{item}</span>
-                      <div className="flex items-center space-x-4">
-                        <Select>
-                          <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="good">Good</SelectItem>
-                            <SelectItem value="attention">Needs Attention</SelectItem>
-                            <SelectItem value="replace">Replace</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Button variant="outline" size="sm">
-                          <Camera className="h-4 w-4" />
-                        </Button>
-                      </div>
+    const [isServiceCheckCreateDialogOpen, setIsServiceCheckCreateDialogOpen] = useState(false);
+    const [isServiceCheckViewDialogOpen, setIsServiceCheckViewDialogOpen] = useState(false);
+    const [isServiceCheckEditDialogOpen, setIsServiceCheckEditDialogOpen] = useState(false);
+    const [viewingServiceCheck, setViewingServiceCheck] = useState<ServiceCheck | null>(null);
+    const [editingServiceCheck, setEditingServiceCheck] = useState<ServiceCheck | null>(null);
+    const [serviceCheckSearchTerm, setServiceCheckSearchTerm] = useState('');
+    const [serviceCheckFilter, setServiceCheckFilter] = useState<'all' | 'recent' | 'needs-attention'>('all');
+
+    // New service check form state
+    const [newServiceCheck, setNewServiceCheck] = useState({
+      customerId: '',
+      vehicleId: '',
+      technician: '',
+      items: [
+        { id: '1', name: 'Engine Oil Level', status: 'good' as const, notes: '', photos: [] },
+        { id: '2', name: 'Brake Fluid', status: 'good' as const, notes: '', photos: [] },
+        { id: '3', name: 'Tire Condition', status: 'good' as const, notes: '', photos: [] },
+        { id: '4', name: 'Battery', status: 'good' as const, notes: '', photos: [] },
+        { id: '5', name: 'Air Filter', status: 'good' as const, notes: '', photos: [] },
+        { id: '6', name: 'Brake Pads', status: 'good' as const, notes: '', photos: [] },
+        { id: '7', name: 'Lights & Signals', status: 'good' as const, notes: '', photos: [] },
+        { id: '8', name: 'Belts & Hoses', status: 'good' as const, notes: '', photos: [] }
+      ]
+    });
+
+    const handleCreateServiceCheck = () => {
+      if (!newServiceCheck.customerId || !newServiceCheck.vehicleId || !newServiceCheck.technician) {
+        alert('Please fill in all required fields.');
+        return;
+      }
+
+      const serviceCheck: ServiceCheck = {
+        id: (serviceChecks.length + 1).toString(),
+        customerId: newServiceCheck.customerId,
+        vehicleId: newServiceCheck.vehicleId,
+        technician: newServiceCheck.technician,
+        createdAt: new Date(),
+        items: newServiceCheck.items.map(item => ({
+          ...item,
+          id: `${Date.now()}-${item.id}`
+        }))
+      };
+
+      setServiceChecks(prev => [...prev, serviceCheck]);
+      setNewServiceCheck({
+        customerId: '',
+        vehicleId: '',
+        technician: '',
+        items: [
+          { id: '1', name: 'Engine Oil Level', status: 'good', notes: '', photos: [] },
+          { id: '2', name: 'Brake Fluid', status: 'good', notes: '', photos: [] },
+          { id: '3', name: 'Tire Condition', status: 'good', notes: '', photos: [] },
+          { id: '4', name: 'Battery', status: 'good', notes: '', photos: [] },
+          { id: '5', name: 'Air Filter', status: 'good', notes: '', photos: [] },
+          { id: '6', name: 'Brake Pads', status: 'good', notes: '', photos: [] },
+          { id: '7', name: 'Lights & Signals', status: 'good', notes: '', photos: [] },
+          { id: '8', name: 'Belts & Hoses', status: 'good', notes: '', photos: [] }
+        ]
+      });
+      setIsServiceCheckCreateDialogOpen(false);
+      alert('Service check created successfully!');
+    };
+
+    const handleEditServiceCheck = () => {
+      if (!editingServiceCheck || !editingServiceCheck.customerId || !editingServiceCheck.vehicleId || !editingServiceCheck.technician) {
+        alert('Please fill in all required fields.');
+        return;
+      }
+
+      setServiceChecks(prev => prev.map(check => 
+        check.id === editingServiceCheck.id ? editingServiceCheck : check
+      ));
+      setEditingServiceCheck(null);
+      setIsServiceCheckEditDialogOpen(false);
+      alert('Service check updated successfully!');
+    };
+
+    const handleDeleteServiceCheck = (serviceCheckId: string) => {
+      if (confirm('Are you sure you want to delete this service check? This action cannot be undone.')) {
+        setServiceChecks(prev => prev.filter(check => check.id !== serviceCheckId));
+        alert('Service check deleted successfully!');
+      }
+    };
+
+    const addNewServiceCheckItem = () => {
+      const newItem = {
+        id: Date.now().toString(),
+        name: '',
+        status: 'good' as const,
+        notes: '',
+        photos: []
+      };
+      setNewServiceCheck(prev => ({
+        ...prev,
+        items: [...prev.items, newItem]
+      }));
+    };
+
+    const removeServiceCheckItem = (itemId: string) => {
+      setNewServiceCheck(prev => ({
+        ...prev,
+        items: prev.items.filter(item => item.id !== itemId)
+      }));
+    };
+
+    const updateServiceCheckItem = (itemId: string, field: string, value: any) => {
+      setNewServiceCheck(prev => ({
+        ...prev,
+        items: prev.items.map(item => 
+          item.id === itemId ? { ...item, [field]: value } : item
+        )
+      }));
+    };
+
+    const addEditingServiceCheckItem = () => {
+      if (!editingServiceCheck) return;
+      
+      const newItem = {
+        id: Date.now().toString(),
+        name: '',
+        status: 'good' as const,
+        notes: '',
+        photos: []
+      };
+      setEditingServiceCheck(prev => prev ? ({
+        ...prev,
+        items: [...prev.items, newItem]
+      }) : null);
+    };
+
+    const removeEditingServiceCheckItem = (itemId: string) => {
+      setEditingServiceCheck(prev => prev ? ({
+        ...prev,
+        items: prev.items.filter(item => item.id !== itemId)
+      }) : null);
+    };
+
+    const updateEditingServiceCheckItem = (itemId: string, field: string, value: any) => {
+      setEditingServiceCheck(prev => prev ? ({
+        ...prev,
+        items: prev.items.map(item => 
+          item.id === itemId ? { ...item, [field]: value } : item
+        )
+      }) : null);
+    };
+
+    const getServiceCheckSummary = (serviceCheck: ServiceCheck) => {
+      const summary = serviceCheck.items.reduce((acc, item) => {
+        acc[item.status] = (acc[item.status] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      return {
+        good: summary.good || 0,
+        needsAttention: summary['needs-attention'] || 0,
+        replace: summary.replace || 0,
+        total: serviceCheck.items.length
+      };
+    };
+
+    const filteredServiceChecks = serviceChecks.filter(serviceCheck => {
+      const customer = customers.find(c => c.id === serviceCheck.customerId);
+      const vehicle = vehicles.find(v => v.id === serviceCheck.vehicleId);
+      
+      const matchesSearch = serviceCheckSearchTerm === '' || 
+        customer?.name.toLowerCase().includes(serviceCheckSearchTerm.toLowerCase()) ||
+        vehicle?.make.toLowerCase().includes(serviceCheckSearchTerm.toLowerCase()) ||
+        vehicle?.model.toLowerCase().includes(serviceCheckSearchTerm.toLowerCase()) ||
+        serviceCheck.technician.toLowerCase().includes(serviceCheckSearchTerm.toLowerCase());
+
+      if (serviceCheckFilter === 'recent') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        return matchesSearch && serviceCheck.createdAt >= sevenDaysAgo;
+      } else if (serviceCheckFilter === 'needs-attention') {
+        const hasIssues = serviceCheck.items.some(item => item.status === 'needs-attention' || item.status === 'replace');
+        return matchesSearch && hasIssues;
+      }
+      
+      return matchesSearch;
+    });
+
+    return (
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="space-y-6"
+      >
+        <motion.div variants={fadeInUp} className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold text-primary">Service Checks</h2>
+            <p className="text-muted-foreground">Digital inspection forms with comprehensive vehicle checks</p>
+          </div>
+          <Dialog open={isServiceCheckCreateDialogOpen} onOpenChange={setIsServiceCheckCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Service Check
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+              <DialogHeader>
+                <DialogTitle>Create Service Check</DialogTitle>
+                <DialogDescription>Digital vehicle inspection form</DialogDescription>
+              </DialogHeader>
+              <ScrollArea className="max-h-[calc(90vh-120px)] pr-4">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="sc-customer">Customer *</Label>
+                      <Select 
+                        value={newServiceCheck.customerId} 
+                        onValueChange={(value) => setNewServiceCheck(prev => ({ ...prev, customerId: value, vehicleId: '' }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select customer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {customers.map((customer) => (
+                            <SelectItem key={customer.id} value={customer.id}>
+                              {customer.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  ))}
+                    <div>
+                      <Label htmlFor="sc-vehicle">Vehicle *</Label>
+                      <Select 
+                        value={newServiceCheck.vehicleId} 
+                        onValueChange={(value) => setNewServiceCheck(prev => ({ ...prev, vehicleId: value }))}
+                        disabled={!newServiceCheck.customerId}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select vehicle" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vehicles.filter(v => v.customerId === newServiceCheck.customerId).map((vehicle) => (
+                            <SelectItem key={vehicle.id} value={vehicle.id}>
+                              {vehicle.year} {vehicle.make} {vehicle.model}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="sc-technician">Technician *</Label>
+                    <Input 
+                      id="sc-technician" 
+                      placeholder="Technician name" 
+                      value={newServiceCheck.technician}
+                      onChange={(e) => setNewServiceCheck(prev => ({ ...prev, technician: e.target.value }))}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <Label className="text-base font-semibold">Inspection Items</Label>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={addNewServiceCheckItem}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Item
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {newServiceCheck.items.map((item, index) => (
+                        <div key={item.id} className="flex items-center space-x-4 p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <Input
+                              placeholder="Item name"
+                              value={item.name}
+                              onChange={(e) => updateServiceCheckItem(item.id, 'name', e.target.value)}
+                            />
+                          </div>
+                          <div className="w-40">
+                            <Select 
+                              value={item.status} 
+                              onValueChange={(value) => updateServiceCheckItem(item.id, 'status', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="good">Good</SelectItem>
+                                <SelectItem value="needs-attention">Needs Attention</SelectItem>
+                                <SelectItem value="replace">Replace</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="w-48">
+                            <Input
+                              placeholder="Notes"
+                              value={item.notes}
+                              onChange={(e) => updateServiceCheckItem(item.id, 'notes', e.target.value)}
+                            />
+                          </div>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => removeServiceCheckItem(item.id)}
+                            disabled={newServiceCheck.items.length <= 1}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <Button className="flex-1" onClick={handleCreateServiceCheck}>
+                      Complete Service Check
+                    </Button>
+                    <Button variant="outline" className="flex-1" onClick={() => setIsServiceCheckCreateDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
+        </motion.div>
 
-              <div>
-                <Label htmlFor="sc-technician">Technician</Label>
-                <Input id="sc-technician" placeholder="Technician name" />
-              </div>
-
-              <div>
-                <Label htmlFor="sc-notes">Additional Notes</Label>
-                <Textarea id="sc-notes" placeholder="Overall vehicle condition, recommendations..." />
-              </div>
-
-              <div className="flex space-x-2">
-                <Button className="flex-1">Complete Service Check</Button>
-                <Button variant="outline" className="flex-1">Save Draft</Button>
-              </div>
+        <motion.div variants={fadeInUp}>
+          <div className="flex space-x-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search service checks by customer, vehicle, or technician..."
+                className="pl-10"
+                value={serviceCheckSearchTerm}
+                onChange={(e) => setServiceCheckSearchTerm(e.target.value)}
+              />
             </div>
+            <Select value={serviceCheckFilter} onValueChange={(value) => setServiceCheckFilter(value as 'all' | 'recent' | 'needs-attention')}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Filter service checks" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Checks</SelectItem>
+                <SelectItem value="recent">Recent (7 days)</SelectItem>
+                <SelectItem value="needs-attention">Needs Attention</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-4">
+            {filteredServiceChecks.length > 0 ? (
+              filteredServiceChecks.map((serviceCheck) => {
+                const customer = customers.find(c => c.id === serviceCheck.customerId);
+                const vehicle = vehicles.find(v => v.id === serviceCheck.vehicleId);
+                const summary = getServiceCheckSummary(serviceCheck);
+                
+                return (
+                  <Card key={serviceCheck.id} className="hover:bg-accent/50 transition-colors">
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+                            <CheckSquare className="h-8 w-8 text-white" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg">Service Check #{serviceCheck.id.padStart(4, '0')}</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {customer?.name} - {vehicle?.year} {vehicle?.make} {vehicle?.model}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Technician: {serviceCheck.technician} | Date: {format(serviceCheck.createdAt, "MMM dd, yyyy")}
+                            </p>
+                            <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-2">
+                              <span className="flex items-center">
+                                <CheckCircle className="h-3 w-3 text-green-600 mr-1" />
+                                {summary.good} Good
+                              </span>
+                              {summary.needsAttention > 0 && (
+                                <span className="flex items-center">
+                                  <AlertCircle className="h-3 w-3 text-orange-600 mr-1" />
+                                  {summary.needsAttention} Attention
+                                </span>
+                              )}
+                              {summary.replace > 0 && (
+                                <span className="flex items-center">
+                                  <X className="h-3 w-3 text-red-600 mr-1" />
+                                  {summary.replace} Replace
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          {(summary.needsAttention > 0 || summary.replace > 0) && (
+                            <Badge variant="destructive">Needs Attention</Badge>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setViewingServiceCheck(serviceCheck);
+                              setIsServiceCheckViewDialogOpen(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setEditingServiceCheck({ ...serviceCheck });
+                              setIsServiceCheckEditDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleDeleteServiceCheck(serviceCheck.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <CheckSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold mb-2">
+                    {serviceCheckSearchTerm || serviceCheckFilter !== 'all' ? 'No service checks found' : 'No Service Checks Yet'}
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    {serviceCheckSearchTerm || serviceCheckFilter !== 'all'
+                      ? 'Try adjusting your search terms or filters.'
+                      : 'Create your first service check to start digital vehicle inspections.'
+                    }
+                  </p>
+                  {!serviceCheckSearchTerm && serviceCheckFilter === 'all' && (
+                    <Button onClick={() => setIsServiceCheckCreateDialogOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create First Service Check
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </motion.div>
+
+        {/* View Service Check Dialog */}
+        <Dialog open={isServiceCheckViewDialogOpen} onOpenChange={setIsServiceCheckViewDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Service Check Details</DialogTitle>
+              <DialogDescription>Complete service check information and inspection results</DialogDescription>
+            </DialogHeader>
+            {viewingServiceCheck && (
+              <ScrollArea className="max-h-[calc(90vh-120px)] pr-4">
+                <div className="space-y-6">
+                  {/* Service Check Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center space-x-2">
+                          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+                            <CheckSquare className="h-4 w-4 text-white" />
+                          </div>
+                          <span>Service Check #{viewingServiceCheck.id.padStart(4, '0')}</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span>Customer: {customers.find(c => c.id === viewingServiceCheck.customerId)?.name}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Car className="h-4 w-4 text-muted-foreground" />
+                          <span>Vehicle: {(() => {
+                            const vehicle = vehicles.find(v => v.id === viewingServiceCheck.vehicleId);
+                            return vehicle ? `${vehicle.year} ${vehicle.make} ${vehicle.model}` : 'Unknown';
+                          })()}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span>Technician: {viewingServiceCheck.technician}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span>Date: {format(viewingServiceCheck.createdAt, "MMMM dd, yyyy")}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Inspection Summary</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {(() => {
+                          const summary = getServiceCheckSummary(viewingServiceCheck);
+                          return (
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="text-center p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                                <p className="text-2xl font-bold text-green-600">{summary.good}</p>
+                                <p className="text-sm text-muted-foreground">Good</p>
+                              </div>
+                              <div className="text-center p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
+                                <p className="text-2xl font-bold text-orange-600">{summary.needsAttention}</p>
+                                <p className="text-sm text-muted-foreground">Needs Attention</p>
+                              </div>
+                              <div className="text-center p-3 bg-red-50 dark:bg-red-950 rounded-lg">
+                                <p className="text-2xl font-bold text-red-600">{summary.replace}</p>
+                                <p className="text-sm text-muted-foreground">Replace</p>
+                              </div>
+                              <div className="text-center p-3 bg-accent/20 rounded-lg">
+                                <p className="text-2xl font-bold text-primary">{summary.total}</p>
+                                <p className="text-sm text-muted-foreground">Total Items</p>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Inspection Items */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Inspection Items</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {viewingServiceCheck.items.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex-1">
+                              <p className="font-medium">{item.name}</p>
+                              {item.notes && (
+                                <p className="text-sm text-muted-foreground mt-1">{item.notes}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Badge variant={
+                                item.status === 'good' ? 'default' : 
+                                item.status === 'needs-attention' ? 'secondary' : 'destructive'
+                              }>
+                                {item.status === 'good' ? 'Good' : 
+                                 item.status === 'needs-attention' ? 'Needs Attention' : 'Replace'}
+                              </Badge>
+                              {item.status !== 'good' && (
+                                <AlertCircle className="h-4 w-4 text-orange-600" />
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="flex justify-end space-x-2">
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        setEditingServiceCheck({ ...viewingServiceCheck });
+                        setIsServiceCheckViewDialogOpen(false);
+                        setIsServiceCheckEditDialogOpen(true);
+                      }}
+                    >
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit Service Check
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsServiceCheckViewDialogOpen(false)}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </ScrollArea>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Service Check Dialog */}
+        <Dialog open={isServiceCheckEditDialogOpen} onOpenChange={setIsServiceCheckEditDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Edit Service Check</DialogTitle>
+              <DialogDescription>Update service check information and inspection items</DialogDescription>
+            </DialogHeader>
+            {editingServiceCheck && (
+              <ScrollArea className="max-h-[calc(90vh-120px)] pr-4">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="edit-sc-customer">Customer *</Label>
+                      <Select 
+                        value={editingServiceCheck.customerId} 
+                        onValueChange={(value) => setEditingServiceCheck(prev => prev ? { ...prev, customerId: value } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select customer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {customers.map((customer) => (
+                            <SelectItem key={customer.id} value={customer.id}>
+                              {customer.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-sc-vehicle">Vehicle *</Label>
+                      <Select 
+                        value={editingServiceCheck.vehicleId} 
+                        onValueChange={(value) => setEditingServiceCheck(prev => prev ? { ...prev, vehicleId: value } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select vehicle" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vehicles.filter(v => v.customerId === editingServiceCheck.customerId).map((vehicle) => (
+                            <SelectItem key={vehicle.id} value={vehicle.id}>
+                              {vehicle.year} {vehicle.make} {vehicle.model}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="edit-sc-technician">Technician *</Label>
+                    <Input 
+                      id="edit-sc-technician" 
+                      value={editingServiceCheck.technician}
+                      onChange={(e) => setEditingServiceCheck(prev => prev ? { ...prev, technician: e.target.value } : null)}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <Label className="text-base font-semibold">Inspection Items</Label>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={addEditingServiceCheckItem}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Item
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {editingServiceCheck.items.map((item, index) => (
+                        <div key={item.id} className="flex items-center space-x-4 p-3 border rounded-lg">
+                          <div className="flex-1">
+                            <Input
+                              placeholder="Item name"
+                              value={item.name}
+                              onChange={(e) => updateEditingServiceCheckItem(item.id, 'name', e.target.value)}
+                            />
+                          </div>
+                          <div className="w-40">
+                            <Select 
+                              value={item.status} 
+                              onValueChange={(value) => updateEditingServiceCheckItem(item.id, 'status', value)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="good">Good</SelectItem>
+                                <SelectItem value="needs-attention">Needs Attention</SelectItem>
+                                <SelectItem value="replace">Replace</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="w-48">
+                            <Input
+                              placeholder="Notes"
+                              value={item.notes}
+                              onChange={(e) => updateEditingServiceCheckItem(item.id, 'notes', e.target.value)}
+                            />
+                          </div>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => removeEditingServiceCheckItem(item.id)}
+                            disabled={editingServiceCheck.items.length <= 1}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex space-x-2">
+                    <Button className="flex-1" onClick={handleEditServiceCheck}>Save Changes</Button>
+                    <Button variant="outline" className="flex-1" onClick={() => setIsServiceCheckEditDialogOpen(false)}>Cancel</Button>
+                  </div>
+                </div>
+              </ScrollArea>
+            )}
           </DialogContent>
         </Dialog>
       </motion.div>
-
-      <motion.div variants={fadeInUp}>
-        <div className="grid gap-4">
-          {[
-            { id: '1', customer: 'John Smith', vehicle: '2020 Toyota Camry', technician: 'Mike Johnson', date: '2024-06-25', status: 'completed' },
-            { id: '2', customer: 'Sarah Johnson', vehicle: '2019 Honda Civic', technician: 'Sarah Davis', date: '2024-06-24', status: 'in-progress' }
-          ].map((check) => (
-            <Card key={check.id} className="hover:bg-accent/50 transition-colors">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
-                      <CheckSquare className="h-8 w-8 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg">Service Check #{check.id.padStart(4, '0')}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {check.customer} - {check.vehicle}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Technician: {check.technician} | Date: {check.date}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant={check.status === 'completed' ? 'default' : 'secondary'}>
-                      {check.status}
-                    </Badge>
-                    <Button variant="outline" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
+    );
+  };
 
   const ProductsContent = () => (
     <motion.div
