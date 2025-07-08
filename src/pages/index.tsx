@@ -54,6 +54,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { ProductsContent } from "@/components/ProductsContent";
+import Logo from "@/components/Logo";
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -915,7 +916,7 @@ export default function BusinessManagementApp() {
     >
       <div className="p-6">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-bold text-primary">AutoPro</h1>
+          <Logo />
           <Button
             variant="ghost"
             size="sm"
@@ -5424,11 +5425,14 @@ export default function BusinessManagementApp() {
                       <div className="space-y-6">
                         {/* Header */}
                         <div className="flex justify-between items-start border-b pb-4">
-                          <div>
-                            <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
-                            <p className="text-sm">{currentTemplate.header.businessAddress}</p>
-                            <p className="text-sm">{currentTemplate.header.businessPhone}</p>
-                            <p className="text-sm">{currentTemplate.header.businessEmail}</p>
+                          <div className="flex items-center gap-4">
+                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo || '/images/logo.png'} showText={false} />}
+                            <div>
+                              <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
+                              <p className="text-sm">{currentTemplate.header.businessAddress}</p>
+                              <p className="text-sm">{currentTemplate.header.businessPhone}</p>
+                              <p className="text-sm">{currentTemplate.header.businessEmail}</p>
+                            </div>
                           </div>
                           <div className="text-right">
                             <h2 className="text-xl font-bold">INVOICE</h2>
@@ -5614,11 +5618,14 @@ export default function BusinessManagementApp() {
                       <div className="space-y-6">
                         {/* Header */}
                         <div className="flex justify-between items-start border-b pb-4">
-                          <div>
-                            <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
-                            <p className="text-sm">{currentTemplate.header.businessAddress}</p>
-                            <p className="text-sm">{currentTemplate.header.businessPhone}</p>
-                            <p className="text-sm">{currentTemplate.header.businessEmail}</p>
+                          <div className="flex items-center gap-4">
+                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo || '/images/logo.png'} showText={false} />}
+                            <div>
+                              <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
+                              <p className="text-sm">{currentTemplate.header.businessAddress}</p>
+                              <p className="text-sm">{currentTemplate.header.businessPhone}</p>
+                              <p className="text-sm">{currentTemplate.header.businessEmail}</p>
+                            </div>
                           </div>
                           <div className="text-right">
                             <h2 className="text-xl font-bold">ESTIMATE</h2>
@@ -5789,11 +5796,14 @@ export default function BusinessManagementApp() {
                       <div className="space-y-6">
                         {/* Header */}
                         <div className="flex justify-between items-start border-b pb-4">
-                          <div>
-                            <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
-                            <p className="text-sm">{currentTemplate.header.businessAddress}</p>
-                            <p className="text-sm">{currentTemplate.header.businessPhone}</p>
-                            <p className="text-sm">{currentTemplate.header.businessEmail}</p>
+                          <div className="flex items-center gap-4">
+                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo || '/images/logo.png'} showText={false} />}
+                            <div>
+                              <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
+                              <p className="text-sm">{currentTemplate.header.businessAddress}</p>
+                              <p className="text-sm">{currentTemplate.header.businessPhone}</p>
+                              <p className="text-sm">{currentTemplate.header.businessEmail}</p>
+                            </div>
                           </div>
                           <div className="text-right">
                             <h2 className="text-xl font-bold">SERVICE CHECK</h2>
@@ -6006,6 +6016,33 @@ export default function BusinessManagementApp() {
                             header: { ...prev.header, businessEmail: e.target.value }
                           }))}
                         />
+                      </div>
+                      <div>
+                        <Label htmlFor="logo-url">Logo URL</Label>
+                        <Input 
+                          id="logo-url" 
+                          placeholder="/images/logo.png"
+                          value={editingTemplate.header.logo}
+                          onChange={(e) => setEditingTemplate(prev => ({
+                            ...prev,
+                            header: { ...prev.header, logo: e.target.value }
+                          }))}
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="show-logo"
+                          checked={editingTemplate.header.showLogo}
+                          onChange={(e) => setEditingTemplate(prev => ({
+                            ...prev,
+                            header: { ...prev.header, showLogo: e.target.checked }
+                          }))}
+                          className="rounded"
+                        />
+                        <Label htmlFor="show-logo" className="text-sm">
+                          Show Logo
+                        </Label>
                       </div>
                     </TabsContent>
 
