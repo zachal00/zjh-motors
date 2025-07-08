@@ -5223,7 +5223,7 @@ export default function BusinessManagementApp() {
           businessAddress: '123 Service St, Auto City, AC 12345',
           businessPhone: '+1 (555) 123-4567',
           businessEmail: 'info@autopro.com',
-          logo: '',
+          logo: 'https://assets.co.dev/f04d1c9e-1c8e-4e1f-a9f2-8889d85dd7b5/file-8b0eaf8.png',
           showLogo: true
         },
         layout: {
@@ -5263,7 +5263,7 @@ export default function BusinessManagementApp() {
           businessAddress: '123 Service St, Auto City, AC 12345',
           businessPhone: '+1 (555) 123-4567',
           businessEmail: 'info@autopro.com',
-          logo: '',
+          logo: 'https://assets.co.dev/f04d1c9e-1c8e-4e1f-a9f2-8889d85dd7b5/file-8b0eaf8.png',
           showLogo: true
         },
         layout: {
@@ -5298,7 +5298,7 @@ export default function BusinessManagementApp() {
           businessAddress: '123 Service St, Auto City, AC 12345',
           businessPhone: '+1 (555) 123-4567',
           businessEmail: 'info@autopro.com',
-          logo: '',
+          logo: 'https://assets.co.dev/f04d1c9e-1c8e-4e1f-a9f2-8889d85dd7b5/file-8b0eaf8.png',
           showLogo: true
         },
         layout: {
@@ -5426,7 +5426,7 @@ export default function BusinessManagementApp() {
                         {/* Header */}
                         <div className="flex justify-between items-start border-b pb-4">
                           <div className="flex items-center gap-4">
-                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo || '/images/logo.png'} showText={false} />}
+                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo} showText={false} />}
                             <div>
                               <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
                               <p className="text-sm">{currentTemplate.header.businessAddress}</p>
@@ -5619,7 +5619,7 @@ export default function BusinessManagementApp() {
                         {/* Header */}
                         <div className="flex justify-between items-start border-b pb-4">
                           <div className="flex items-center gap-4">
-                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo || '/images/logo.png'} showText={false} />}
+                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo} showText={false} />}
                             <div>
                               <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
                               <p className="text-sm">{currentTemplate.header.businessAddress}</p>
@@ -5797,7 +5797,7 @@ export default function BusinessManagementApp() {
                         {/* Header */}
                         <div className="flex justify-between items-start border-b pb-4">
                           <div className="flex items-center gap-4">
-                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo || '/images/logo.png'} showText={false} />}
+                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo} showText={false} />}
                             <div>
                               <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
                               <p className="text-sm">{currentTemplate.header.businessAddress}</p>
@@ -6021,7 +6021,7 @@ export default function BusinessManagementApp() {
                         <Label htmlFor="logo-url">Logo URL</Label>
                         <Input 
                           id="logo-url" 
-                          placeholder="/images/logo.png"
+                          placeholder="https://..."
                           value={editingTemplate.header.logo}
                           onChange={(e) => setEditingTemplate(prev => ({
                             ...prev,
