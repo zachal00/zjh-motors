@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface CalendarEvent {
   summary: string;
@@ -10,25 +10,36 @@ interface CalendarEvent {
 
 export const useGoogleCalendar = () => {
   const [isConnected, setIsConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true
   const [error, setError] = useState<string | null>(null);
+
+  const checkConnectionStatus = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/calendar/events');
+      const data = await response.json();
+      
+      if (response.ok) {
+        setIsConnected(data.connected);
+      } else {
+        setIsConnected(false);
+        // Don't set an error message here, as it might just mean "not connected yet"
+      }
+    } catch (err) {
+      setIsConnected(false);
+      setError('Failed to check connection status. The server might be down.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   // Check connection status on mount
   useEffect(() => {
     checkConnectionStatus();
-  }, []);
+  }, [checkConnectionStatus]);
 
-  const checkConnectionStatus = async () => {
-    try {
-      const response = await fetch('/api/calendar/events');
-      const data = await response.json();
-      setIsConnected(data.connected || false);
-    } catch (error) {
-      setIsConnected(false);
-    }
-  };
-
-  const connectToGoogle = async () => {
+  const connectToGoogle = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -37,27 +48,24 @@ export const useGoogleCalendar = () => {
       const data = await response.json();
       
       if (data.authUrl) {
-        // Open Google OAuth in a new window
         window.location.href = data.authUrl;
       } else {
-        throw new Error('Failed to get authorization URL');
+        throw new Error(data.message || 'Failed to get authorization URL');
       }
-    } catch (error) {
-      setError('Failed to connect to Google Calendar');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to connect to Google Calendar');
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const createCalendarEvent = async (event: CalendarEvent) => {
+  const createCalendarEvent = useCallback(async (event: CalendarEvent) => {
     setIsLoading(true);
     setError(null);
 
     try {
       const response = await fetch('/api/calendar/events', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(event),
       });
 
@@ -66,26 +74,28 @@ export const useGoogleCalendar = () => {
       if (!response.ok) {
         throw new Error(data.message || 'Failed to create calendar event');
       }
-
-      setIsLoading(false);
+      
       return data;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to create calendar event');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      if (errorMessage.includes('reconnect')) {
+        setIsConnected(false);
+      }
+      throw err;
+    } finally {
       setIsLoading(false);
-      throw error;
     }
-  };
+  }, []);
 
-  const deleteCalendarEvent = async (eventId: string) => {
+  const deleteCalendarEvent = useCallback(async (eventId: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
       const response = await fetch('/api/calendar/events', {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ eventId }),
       });
 
@@ -94,21 +104,27 @@ export const useGoogleCalendar = () => {
       if (!response.ok) {
         throw new Error(data.message || 'Failed to delete calendar event');
       }
-
-      setIsLoading(false);
+      
       return data;
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to delete calendar event');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      setError(errorMessage);
+      if (errorMessage.includes('reconnect')) {
+        setIsConnected(false);
+      }
+      throw err;
+    } finally {
       setIsLoading(false);
-      throw error;
     }
-  };
+  }, []);
 
-  const disconnect = () => {
-    // Clear the authentication cookie by setting it to expire
-    document.cookie = 'google_calendar_tokens=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-    setIsConnected(false);
-  };
+  const disconnect = useCallback(() => {
+    // This will clear the HttpOnly cookie by telling the server to expire it
+    fetch('/api/calendar/disconnect').finally(() => {
+      setIsConnected(false);
+      setError(null);
+    });
+  }, []);
 
   return {
     isConnected,
