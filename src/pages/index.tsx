@@ -892,6 +892,7 @@ export default function BusinessManagementApp() {
     { id: 'estimates', label: 'Estimates', icon: Calculator },
     { id: 'service-checks', label: 'Service Checks', icon: CheckSquare },
     { id: 'products', label: 'Products', icon: Package },
+    { id: 'templates', label: 'Templates', icon: FileText },
     { id: 'website', label: 'Website', icon: Eye },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
@@ -5210,6 +5211,966 @@ export default function BusinessManagementApp() {
     );
   };
 
+  const TemplatesContent = () => {
+    const [activeTemplateTab, setActiveTemplateTab] = useState('invoice');
+    const [templates, setTemplates] = useState({
+      invoice: {
+        id: 'invoice-template',
+        name: 'Invoice Template',
+        header: {
+          businessName: 'AutoPro Service Center',
+          businessAddress: '123 Service St, Auto City, AC 12345',
+          businessPhone: '+1 (555) 123-4567',
+          businessEmail: 'info@autopro.com',
+          logo: '',
+          showLogo: true
+        },
+        layout: {
+          primaryColor: '#2563eb',
+          accentColor: '#f3f4f6',
+          fontFamily: 'Inter',
+          fontSize: 'medium',
+          showBorder: true,
+          borderColor: '#e5e7eb'
+        },
+        sections: {
+          showCustomerInfo: true,
+          showVehicleInfo: true,
+          showItemsTable: true,
+          showTotals: true,
+          showNotes: true,
+          showTerms: true,
+          showBankDetails: true,
+          showRecommendations: true
+        },
+        footer: {
+          thankYouMessage: 'Thank you for your business!',
+          paymentTerms: 'Payment due within 30 days',
+          bankDetails: {
+            bankName: 'First National Bank',
+            accountNumber: '****1234',
+            routingNumber: '123456789'
+          },
+          recommendations: 'We recommend regular maintenance every 6 months for optimal vehicle performance.'
+        }
+      },
+      estimate: {
+        id: 'estimate-template',
+        name: 'Estimate Template',
+        header: {
+          businessName: 'AutoPro Service Center',
+          businessAddress: '123 Service St, Auto City, AC 12345',
+          businessPhone: '+1 (555) 123-4567',
+          businessEmail: 'info@autopro.com',
+          logo: '',
+          showLogo: true
+        },
+        layout: {
+          primaryColor: '#059669',
+          accentColor: '#f0fdf4',
+          fontFamily: 'Inter',
+          fontSize: 'medium',
+          showBorder: true,
+          borderColor: '#d1fae5'
+        },
+        sections: {
+          showCustomerInfo: true,
+          showVehicleInfo: true,
+          showItemsTable: true,
+          showTotals: true,
+          showNotes: true,
+          showValidUntil: true,
+          showTerms: true,
+          showRecommendations: true
+        },
+        footer: {
+          validityMessage: 'This estimate is valid for 30 days from the date of issue.',
+          terms: 'Prices subject to change based on actual parts and labor required.',
+          recommendations: 'We recommend addressing high-priority items first for safety and performance.'
+        }
+      },
+      serviceCheck: {
+        id: 'service-check-template',
+        name: 'Service Check Template',
+        header: {
+          businessName: 'AutoPro Service Center',
+          businessAddress: '123 Service St, Auto City, AC 12345',
+          businessPhone: '+1 (555) 123-4567',
+          businessEmail: 'info@autopro.com',
+          logo: '',
+          showLogo: true
+        },
+        layout: {
+          primaryColor: '#7c3aed',
+          accentColor: '#faf5ff',
+          fontFamily: 'Inter',
+          fontSize: 'medium',
+          showBorder: true,
+          borderColor: '#e9d5ff'
+        },
+        sections: {
+          showCustomerInfo: true,
+          showVehicleInfo: true,
+          showTechnicianInfo: true,
+          showInspectionItems: true,
+          showSummary: true,
+          showPhotos: true,
+          showRecommendations: true,
+          showSignature: true
+        },
+        footer: {
+          disclaimer: 'This inspection reflects the condition of the vehicle at the time of service.',
+          recommendations: 'Please address items marked as "Needs Attention" or "Replace" promptly.',
+          nextServiceReminder: 'Schedule your next service in 6 months or 5,000 miles.'
+        }
+      }
+    });
+
+    const [editingTemplate, setEditingTemplate] = useState<any>(null);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [previewMode, setPreviewMode] = useState(false);
+
+    const handleSaveTemplate = () => {
+      if (!editingTemplate) return;
+      
+      setTemplates(prev => ({
+        ...prev,
+        [activeTemplateTab]: editingTemplate
+      }));
+      setEditingTemplate(null);
+      setIsEditDialogOpen(false);
+      alert('Template saved successfully!');
+    };
+
+    const handleResetTemplate = () => {
+      if (confirm('Are you sure you want to reset this template to default settings? This action cannot be undone.')) {
+        // Reset to default template based on type
+        const defaultTemplate = {
+          invoice: templates.invoice,
+          estimate: templates.estimate,
+          serviceCheck: templates.serviceCheck
+        }[activeTemplateTab];
+        
+        setTemplates(prev => ({
+          ...prev,
+          [activeTemplateTab]: defaultTemplate
+        }));
+        alert('Template reset to default settings!');
+      }
+    };
+
+    const currentTemplate = templates[activeTemplateTab as keyof typeof templates];
+
+    return (
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="space-y-6"
+      >
+        <motion.div variants={fadeInUp}>
+          <h2 className="text-3xl font-bold text-primary mb-2">Templates</h2>
+          <p className="text-muted-foreground">Customize your invoice, estimate, and service check templates</p>
+        </motion.div>
+
+        <motion.div variants={fadeInUp}>
+          <Tabs value={activeTemplateTab} onValueChange={setActiveTemplateTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="invoice" className="flex items-center space-x-2">
+                <FileText className="h-4 w-4" />
+                <span>Invoice Template</span>
+              </TabsTrigger>
+              <TabsTrigger value="estimate" className="flex items-center space-x-2">
+                <Calculator className="h-4 w-4" />
+                <span>Estimate Template</span>
+              </TabsTrigger>
+              <TabsTrigger value="serviceCheck" className="flex items-center space-x-2">
+                <CheckSquare className="h-4 w-4" />
+                <span>Service Check Template</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="invoice" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Invoice Template</CardTitle>
+                      <CardDescription>Customize how your invoices look and what information they include</CardDescription>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setPreviewMode(!previewMode)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        {previewMode ? 'Edit' : 'Preview'}
+                      </Button>
+                      <Button 
+                        onClick={() => {
+                          setEditingTemplate({ ...currentTemplate });
+                          setIsEditDialogOpen(true);
+                        }}
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit Template
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {previewMode ? (
+                    <div className="border rounded-lg p-6 bg-white text-black" style={{ color: currentTemplate.layout.primaryColor }}>
+                      <div className="space-y-6">
+                        {/* Header */}
+                        <div className="flex justify-between items-start border-b pb-4">
+                          <div>
+                            <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
+                            <p className="text-sm">{currentTemplate.header.businessAddress}</p>
+                            <p className="text-sm">{currentTemplate.header.businessPhone}</p>
+                            <p className="text-sm">{currentTemplate.header.businessEmail}</p>
+                          </div>
+                          <div className="text-right">
+                            <h2 className="text-xl font-bold">INVOICE</h2>
+                            <p className="text-sm">INV-202407-0001</p>
+                            <p className="text-sm">Date: July 8, 2024</p>
+                          </div>
+                        </div>
+
+                        {/* Customer & Vehicle Info */}
+                        {(currentTemplate.sections.showCustomerInfo || currentTemplate.sections.showVehicleInfo) && (
+                          <div className="grid grid-cols-2 gap-6">
+                            {currentTemplate.sections.showCustomerInfo && (
+                              <div>
+                                <h3 className="font-semibold mb-2">Bill To:</h3>
+                                <p>John Smith</p>
+                                <p>john@example.com</p>
+                                <p>+1 (555) 123-4567</p>
+                                <p>123 Main St, City, State 12345</p>
+                              </div>
+                            )}
+                            {currentTemplate.sections.showVehicleInfo && (
+                              <div>
+                                <h3 className="font-semibold mb-2">Vehicle:</h3>
+                                <p>2020 Toyota Camry</p>
+                                <p>VIN: 1HGBH41JXMN109186</p>
+                                <p>License: ABC123</p>
+                                <p>Color: Silver</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Items Table */}
+                        {currentTemplate.sections.showItemsTable && (
+                          <div>
+                            <table className="w-full border-collapse border">
+                              <thead>
+                                <tr style={{ backgroundColor: currentTemplate.layout.accentColor }}>
+                                  <th className="border p-2 text-left">Description</th>
+                                  <th className="border p-2 text-center">Qty</th>
+                                  <th className="border p-2 text-right">Price</th>
+                                  <th className="border p-2 text-right">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td className="border p-2">Oil Change Service</td>
+                                  <td className="border p-2 text-center">1</td>
+                                  <td className="border p-2 text-right">$49.99</td>
+                                  <td className="border p-2 text-right">$49.99</td>
+                                </tr>
+                                <tr>
+                                  <td className="border p-2">Air Filter</td>
+                                  <td className="border p-2 text-center">1</td>
+                                  <td className="border p-2 text-right">$24.99</td>
+                                  <td className="border p-2 text-right">$24.99</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Totals */}
+                        {currentTemplate.sections.showTotals && (
+                          <div className="flex justify-end">
+                            <div className="w-64 space-y-2">
+                              <div className="flex justify-between">
+                                <span>Subtotal:</span>
+                                <span>$74.98</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Tax (8.5%):</span>
+                                <span>$6.37</span>
+                              </div>
+                              <div className="flex justify-between font-bold text-lg border-t pt-2">
+                                <span>Total:</span>
+                                <span>$81.35</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Notes */}
+                        {currentTemplate.sections.showNotes && (
+                          <div>
+                            <h3 className="font-semibold mb-2">Notes:</h3>
+                            <p className="text-sm">Thank you for your business!</p>
+                          </div>
+                        )}
+
+                        {/* Footer */}
+                        <div className="border-t pt-4 space-y-4">
+                          {currentTemplate.sections.showBankDetails && (
+                            <div>
+                              <h3 className="font-semibold mb-2">Payment Information:</h3>
+                              <p className="text-sm">Bank: {currentTemplate.footer.bankDetails.bankName}</p>
+                              <p className="text-sm">Account: {currentTemplate.footer.bankDetails.accountNumber}</p>
+                              <p className="text-sm">Routing: {currentTemplate.footer.bankDetails.routingNumber}</p>
+                            </div>
+                          )}
+                          {currentTemplate.sections.showRecommendations && (
+                            <div>
+                              <h3 className="font-semibold mb-2">Recommendations:</h3>
+                              <p className="text-sm">{currentTemplate.footer.recommendations}</p>
+                            </div>
+                          )}
+                          <div className="text-center">
+                            <p className="text-sm font-semibold">{currentTemplate.footer.thankYouMessage}</p>
+                            <p className="text-xs">{currentTemplate.footer.paymentTerms}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-semibold mb-2">Header Information</h4>
+                          <div className="space-y-2 text-sm">
+                            <p><strong>Business:</strong> {currentTemplate.header.businessName}</p>
+                            <p><strong>Address:</strong> {currentTemplate.header.businessAddress}</p>
+                            <p><strong>Phone:</strong> {currentTemplate.header.businessPhone}</p>
+                            <p><strong>Email:</strong> {currentTemplate.header.businessEmail}</p>
+                          </div>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-semibold mb-2">Layout & Design</h4>
+                          <div className="space-y-2 text-sm">
+                            <p><strong>Primary Color:</strong> <span className="inline-block w-4 h-4 rounded ml-2" style={{ backgroundColor: currentTemplate.layout.primaryColor }}></span></p>
+                            <p><strong>Font:</strong> {currentTemplate.layout.fontFamily}</p>
+                            <p><strong>Size:</strong> {currentTemplate.layout.fontSize}</p>
+                            <p><strong>Border:</strong> {currentTemplate.layout.showBorder ? 'Yes' : 'No'}</p>
+                          </div>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-semibold mb-2">Sections</h4>
+                          <div className="space-y-1 text-sm">
+                            {Object.entries(currentTemplate.sections).map(([key, value]) => (
+                              <p key={key}>
+                                <strong>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</strong> {value ? 'Yes' : 'No'}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="estimate" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Estimate Template</CardTitle>
+                      <CardDescription>Customize how your estimates look and what information they include</CardDescription>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setPreviewMode(!previewMode)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        {previewMode ? 'Edit' : 'Preview'}
+                      </Button>
+                      <Button 
+                        onClick={() => {
+                          setEditingTemplate({ ...currentTemplate });
+                          setIsEditDialogOpen(true);
+                        }}
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit Template
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {previewMode ? (
+                    <div className="border rounded-lg p-6 bg-white text-black" style={{ color: currentTemplate.layout.primaryColor }}>
+                      <div className="space-y-6">
+                        {/* Header */}
+                        <div className="flex justify-between items-start border-b pb-4">
+                          <div>
+                            <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
+                            <p className="text-sm">{currentTemplate.header.businessAddress}</p>
+                            <p className="text-sm">{currentTemplate.header.businessPhone}</p>
+                            <p className="text-sm">{currentTemplate.header.businessEmail}</p>
+                          </div>
+                          <div className="text-right">
+                            <h2 className="text-xl font-bold">ESTIMATE</h2>
+                            <p className="text-sm">EST-202407-0001</p>
+                            <p className="text-sm">Date: July 8, 2024</p>
+                            <p className="text-sm">Valid Until: August 7, 2024</p>
+                          </div>
+                        </div>
+
+                        {/* Customer & Vehicle Info */}
+                        {(currentTemplate.sections.showCustomerInfo || currentTemplate.sections.showVehicleInfo) && (
+                          <div className="grid grid-cols-2 gap-6">
+                            {currentTemplate.sections.showCustomerInfo && (
+                              <div>
+                                <h3 className="font-semibold mb-2">Estimate For:</h3>
+                                <p>John Smith</p>
+                                <p>john@example.com</p>
+                                <p>+1 (555) 123-4567</p>
+                                <p>123 Main St, City, State 12345</p>
+                              </div>
+                            )}
+                            {currentTemplate.sections.showVehicleInfo && (
+                              <div>
+                                <h3 className="font-semibold mb-2">Vehicle:</h3>
+                                <p>2020 Toyota Camry</p>
+                                <p>VIN: 1HGBH41JXMN109186</p>
+                                <p>License: ABC123</p>
+                                <p>Color: Silver</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Items Table */}
+                        {currentTemplate.sections.showItemsTable && (
+                          <div>
+                            <table className="w-full border-collapse border">
+                              <thead>
+                                <tr style={{ backgroundColor: currentTemplate.layout.accentColor }}>
+                                  <th className="border p-2 text-left">Description</th>
+                                  <th className="border p-2 text-center">Qty</th>
+                                  <th className="border p-2 text-right">Price</th>
+                                  <th className="border p-2 text-right">Total</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td className="border p-2">Brake Service</td>
+                                  <td className="border p-2 text-center">1</td>
+                                  <td className="border p-2 text-right">$129.99</td>
+                                  <td className="border p-2 text-right">$129.99</td>
+                                </tr>
+                                <tr>
+                                  <td className="border p-2">Brake Pads</td>
+                                  <td className="border p-2 text-center">1</td>
+                                  <td className="border p-2 text-right">$89.99</td>
+                                  <td className="border p-2 text-right">$89.99</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Totals */}
+                        {currentTemplate.sections.showTotals && (
+                          <div className="flex justify-end">
+                            <div className="w-64 space-y-2">
+                              <div className="flex justify-between">
+                                <span>Subtotal:</span>
+                                <span>$219.98</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Tax (8.5%):</span>
+                                <span>$18.70</span>
+                              </div>
+                              <div className="flex justify-between font-bold text-lg border-t pt-2">
+                                <span>Total:</span>
+                                <span>$238.68</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Footer */}
+                        <div className="border-t pt-4 space-y-4">
+                          {currentTemplate.sections.showRecommendations && (
+                            <div>
+                              <h3 className="font-semibold mb-2">Recommendations:</h3>
+                              <p className="text-sm">{currentTemplate.footer.recommendations}</p>
+                            </div>
+                          )}
+                          <div className="text-center">
+                            <p className="text-sm font-semibold">{currentTemplate.footer.validityMessage}</p>
+                            <p className="text-xs">{currentTemplate.footer.terms}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-semibold mb-2">Header Information</h4>
+                          <div className="space-y-2 text-sm">
+                            <p><strong>Business:</strong> {currentTemplate.header.businessName}</p>
+                            <p><strong>Address:</strong> {currentTemplate.header.businessAddress}</p>
+                            <p><strong>Phone:</strong> {currentTemplate.header.businessPhone}</p>
+                            <p><strong>Email:</strong> {currentTemplate.header.businessEmail}</p>
+                          </div>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-semibold mb-2">Layout & Design</h4>
+                          <div className="space-y-2 text-sm">
+                            <p><strong>Primary Color:</strong> <span className="inline-block w-4 h-4 rounded ml-2" style={{ backgroundColor: currentTemplate.layout.primaryColor }}></span></p>
+                            <p><strong>Font:</strong> {currentTemplate.layout.fontFamily}</p>
+                            <p><strong>Size:</strong> {currentTemplate.layout.fontSize}</p>
+                            <p><strong>Border:</strong> {currentTemplate.layout.showBorder ? 'Yes' : 'No'}</p>
+                          </div>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-semibold mb-2">Sections</h4>
+                          <div className="space-y-1 text-sm">
+                            {Object.entries(currentTemplate.sections).map(([key, value]) => (
+                              <p key={key}>
+                                <strong>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</strong> {value ? 'Yes' : 'No'}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="serviceCheck" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Service Check Template</CardTitle>
+                      <CardDescription>Customize how your service check reports look and what information they include</CardDescription>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setPreviewMode(!previewMode)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        {previewMode ? 'Edit' : 'Preview'}
+                      </Button>
+                      <Button 
+                        onClick={() => {
+                          setEditingTemplate({ ...currentTemplate });
+                          setIsEditDialogOpen(true);
+                        }}
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit Template
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {previewMode ? (
+                    <div className="border rounded-lg p-6 bg-white text-black" style={{ color: currentTemplate.layout.primaryColor }}>
+                      <div className="space-y-6">
+                        {/* Header */}
+                        <div className="flex justify-between items-start border-b pb-4">
+                          <div>
+                            <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
+                            <p className="text-sm">{currentTemplate.header.businessAddress}</p>
+                            <p className="text-sm">{currentTemplate.header.businessPhone}</p>
+                            <p className="text-sm">{currentTemplate.header.businessEmail}</p>
+                          </div>
+                          <div className="text-right">
+                            <h2 className="text-xl font-bold">SERVICE CHECK</h2>
+                            <p className="text-sm">SC-0001</p>
+                            <p className="text-sm">Date: July 8, 2024</p>
+                          </div>
+                        </div>
+
+                        {/* Customer, Vehicle & Technician Info */}
+                        <div className="grid grid-cols-3 gap-6">
+                          {currentTemplate.sections.showCustomerInfo && (
+                            <div>
+                              <h3 className="font-semibold mb-2">Customer:</h3>
+                              <p>John Smith</p>
+                              <p>john@example.com</p>
+                              <p>+1 (555) 123-4567</p>
+                            </div>
+                          )}
+                          {currentTemplate.sections.showVehicleInfo && (
+                            <div>
+                              <h3 className="font-semibold mb-2">Vehicle:</h3>
+                              <p>2020 Toyota Camry</p>
+                              <p>VIN: 1HGBH41JXMN109186</p>
+                              <p>License: ABC123</p>
+                            </div>
+                          )}
+                          {currentTemplate.sections.showTechnicianInfo && (
+                            <div>
+                              <h3 className="font-semibold mb-2">Technician:</h3>
+                              <p>Mike Johnson</p>
+                              <p>Certified Mechanic</p>
+                              <p>License: #12345</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Inspection Items */}
+                        {currentTemplate.sections.showInspectionItems && (
+                          <div>
+                            <h3 className="font-semibold mb-4">Inspection Results:</h3>
+                            <table className="w-full border-collapse border">
+                              <thead>
+                                <tr style={{ backgroundColor: currentTemplate.layout.accentColor }}>
+                                  <th className="border p-2 text-left">Item</th>
+                                  <th className="border p-2 text-center">Status</th>
+                                  <th className="border p-2 text-left">Notes</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <tr>
+                                  <td className="border p-2">Engine Oil Level</td>
+                                  <td className="border p-2 text-center">
+                                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Good</span>
+                                  </td>
+                                  <td className="border p-2">Oil level is adequate</td>
+                                </tr>
+                                <tr>
+                                  <td className="border p-2">Brake Fluid</td>
+                                  <td className="border p-2 text-center">
+                                    <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">Attention</span>
+                                  </td>
+                                  <td className="border p-2">Fluid level slightly low</td>
+                                </tr>
+                                <tr>
+                                  <td className="border p-2">Battery</td>
+                                  <td className="border p-2 text-center">
+                                    <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">Replace</span>
+                                  </td>
+                                  <td className="border p-2">Battery showing signs of corrosion</td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {/* Summary */}
+                        {currentTemplate.sections.showSummary && (
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="text-center p-3 bg-green-50 rounded-lg">
+                              <p className="text-2xl font-bold text-green-600">5</p>
+                              <p className="text-sm">Good</p>
+                            </div>
+                            <div className="text-center p-3 bg-orange-50 rounded-lg">
+                              <p className="text-2xl font-bold text-orange-600">1</p>
+                              <p className="text-sm">Needs Attention</p>
+                            </div>
+                            <div className="text-center p-3 bg-red-50 rounded-lg">
+                              <p className="text-2xl font-bold text-red-600">1</p>
+                              <p className="text-sm">Replace</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Footer */}
+                        <div className="border-t pt-4 space-y-4">
+                          {currentTemplate.sections.showRecommendations && (
+                            <div>
+                              <h3 className="font-semibold mb-2">Recommendations:</h3>
+                              <p className="text-sm">{currentTemplate.footer.recommendations}</p>
+                            </div>
+                          )}
+                          <div className="text-center">
+                            <p className="text-xs">{currentTemplate.footer.disclaimer}</p>
+                            <p className="text-sm font-semibold mt-2">{currentTemplate.footer.nextServiceReminder}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-semibold mb-2">Header Information</h4>
+                          <div className="space-y-2 text-sm">
+                            <p><strong>Business:</strong> {currentTemplate.header.businessName}</p>
+                            <p><strong>Address:</strong> {currentTemplate.header.businessAddress}</p>
+                            <p><strong>Phone:</strong> {currentTemplate.header.businessPhone}</p>
+                            <p><strong>Email:</strong> {currentTemplate.header.businessEmail}</p>
+                          </div>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-semibold mb-2">Layout & Design</h4>
+                          <div className="space-y-2 text-sm">
+                            <p><strong>Primary Color:</strong> <span className="inline-block w-4 h-4 rounded ml-2" style={{ backgroundColor: currentTemplate.layout.primaryColor }}></span></p>
+                            <p><strong>Font:</strong> {currentTemplate.layout.fontFamily}</p>
+                            <p><strong>Size:</strong> {currentTemplate.layout.fontSize}</p>
+                            <p><strong>Border:</strong> {currentTemplate.layout.showBorder ? 'Yes' : 'No'}</p>
+                          </div>
+                        </div>
+                        <div className="p-4 border rounded-lg">
+                          <h4 className="font-semibold mb-2">Sections</h4>
+                          <div className="space-y-1 text-sm">
+                            {Object.entries(currentTemplate.sections).map(([key, value]) => (
+                              <p key={key}>
+                                <strong>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</strong> {value ? 'Yes' : 'No'}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </motion.div>
+
+        {/* Template Editor Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Edit {currentTemplate.name}</DialogTitle>
+              <DialogDescription>Customize your template settings and appearance</DialogDescription>
+            </DialogHeader>
+            {editingTemplate && (
+              <ScrollArea className="max-h-[calc(90vh-120px)] pr-4">
+                <div className="space-y-6">
+                  <Tabs defaultValue="header" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                      <TabsTrigger value="header">Header</TabsTrigger>
+                      <TabsTrigger value="layout">Layout</TabsTrigger>
+                      <TabsTrigger value="sections">Sections</TabsTrigger>
+                      <TabsTrigger value="footer">Footer</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="header" className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="business-name">Business Name</Label>
+                          <Input 
+                            id="business-name" 
+                            value={editingTemplate.header.businessName}
+                            onChange={(e) => setEditingTemplate(prev => ({
+                              ...prev,
+                              header: { ...prev.header, businessName: e.target.value }
+                            }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="business-phone">Phone</Label>
+                          <Input 
+                            id="business-phone" 
+                            value={editingTemplate.header.businessPhone}
+                            onChange={(e) => setEditingTemplate(prev => ({
+                              ...prev,
+                              header: { ...prev.header, businessPhone: e.target.value }
+                            }))}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="business-address">Address</Label>
+                        <Textarea 
+                          id="business-address" 
+                          value={editingTemplate.header.businessAddress}
+                          onChange={(e) => setEditingTemplate(prev => ({
+                            ...prev,
+                            header: { ...prev.header, businessAddress: e.target.value }
+                          }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="business-email">Email</Label>
+                        <Input 
+                          id="business-email" 
+                          value={editingTemplate.header.businessEmail}
+                          onChange={(e) => setEditingTemplate(prev => ({
+                            ...prev,
+                            header: { ...prev.header, businessEmail: e.target.value }
+                          }))}
+                        />
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="layout" className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="primary-color">Primary Color</Label>
+                          <Input 
+                            id="primary-color" 
+                            type="color"
+                            value={editingTemplate.layout.primaryColor}
+                            onChange={(e) => setEditingTemplate(prev => ({
+                              ...prev,
+                              layout: { ...prev.layout, primaryColor: e.target.value }
+                            }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="accent-color">Accent Color</Label>
+                          <Input 
+                            id="accent-color" 
+                            type="color"
+                            value={editingTemplate.layout.accentColor}
+                            onChange={(e) => setEditingTemplate(prev => ({
+                              ...prev,
+                              layout: { ...prev.layout, accentColor: e.target.value }
+                            }))}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="font-family">Font Family</Label>
+                          <Select 
+                            value={editingTemplate.layout.fontFamily}
+                            onValueChange={(value) => setEditingTemplate(prev => ({
+                              ...prev,
+                              layout: { ...prev.layout, fontFamily: value }
+                            }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Inter">Inter</SelectItem>
+                              <SelectItem value="Arial">Arial</SelectItem>
+                              <SelectItem value="Helvetica">Helvetica</SelectItem>
+                              <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="font-size">Font Size</Label>
+                          <Select 
+                            value={editingTemplate.layout.fontSize}
+                            onValueChange={(value) => setEditingTemplate(prev => ({
+                              ...prev,
+                              layout: { ...prev.layout, fontSize: value }
+                            }))}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="small">Small</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="large">Large</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="sections" className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        {Object.entries(editingTemplate.sections).map(([key, value]) => (
+                          <div key={key} className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={key}
+                              checked={value as boolean}
+                              onChange={(e) => setEditingTemplate(prev => ({
+                                ...prev,
+                                sections: { ...prev.sections, [key]: e.target.checked }
+                              }))}
+                              className="rounded"
+                            />
+                            <Label htmlFor={key} className="text-sm">
+                              {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="footer" className="space-y-4">
+                      {Object.entries(editingTemplate.footer).map(([key, value]) => {
+                        if (typeof value === 'object') {
+                          return (
+                            <div key={key}>
+                              <Label className="text-base font-semibold">
+                                {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                              </Label>
+                              <div className="grid grid-cols-2 gap-4 mt-2">
+                                {Object.entries(value).map(([subKey, subValue]) => (
+                                  <div key={subKey}>
+                                    <Label htmlFor={`${key}-${subKey}`} className="text-sm">
+                                      {subKey.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                                    </Label>
+                                    <Input 
+                                      id={`${key}-${subKey}`}
+                                      value={subValue as string}
+                                      onChange={(e) => setEditingTemplate(prev => ({
+                                        ...prev,
+                                        footer: { 
+                                          ...prev.footer, 
+                                          [key]: { ...prev.footer[key], [subKey]: e.target.value }
+                                        }
+                                      }))}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div key={key}>
+                            <Label htmlFor={key}>
+                              {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                            </Label>
+                            <Textarea 
+                              id={key}
+                              value={value as string}
+                              onChange={(e) => setEditingTemplate(prev => ({
+                                ...prev,
+                                footer: { ...prev.footer, [key]: e.target.value }
+                              }))}
+                            />
+                          </div>
+                        );
+                      })}
+                    </TabsContent>
+                  </Tabs>
+
+                  <div className="flex space-x-2">
+                    <Button className="flex-1" onClick={handleSaveTemplate}>
+                      Save Template
+                    </Button>
+                    <Button variant="outline" onClick={handleResetTemplate}>
+                      Reset to Default
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </ScrollArea>
+            )}
+          </DialogContent>
+        </Dialog>
+      </motion.div>
+    );
+  };
+
   const WebsiteContent = () => (
     <motion.div
       variants={staggerContainer}
@@ -5531,6 +6492,8 @@ export default function BusinessManagementApp() {
         return <WebsiteContent />;
       case 'estimates':
         return <EstimatesContent />;
+      case 'templates':
+        return <TemplatesContent />;
       case 'settings':
         return (
           <motion.div
