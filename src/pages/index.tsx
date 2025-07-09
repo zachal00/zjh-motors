@@ -51,7 +51,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { ProductsContent } from "@/components/ProductsContent";
 import Logo from "@/components/Logo";
@@ -904,7 +904,7 @@ export default function BusinessManagementApp() {
       apt.date.toDateString() === new Date().toDateString()
     ).length, icon: Calendar, color: 'text-green-600' },
     { label: 'Pending Invoices', value: 5, icon: FileText, color: 'text-orange-600' },
-    { label: 'Monthly Revenue', value: '$12,450', icon: DollarSign, color: 'text-purple-600' }
+    { label: 'Monthly Revenue', value: formatCurrency(12450), icon: DollarSign, color: 'text-purple-600' }
   ];
 
   const Sidebar = () => (
@@ -1267,7 +1267,7 @@ export default function BusinessManagementApp() {
                             <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-2">
                               <span>{stats.vehicleCount} vehicle{stats.vehicleCount !== 1 ? 's' : ''}</span>
                               <span>{stats.appointmentCount} appointment{stats.appointmentCount !== 1 ? 's' : ''}</span>
-                              <span>${stats.totalSpent.toFixed(2)} total spent</span>
+                              <span>{formatCurrency(stats.totalSpent)} total spent</span>
                               {stats.lastVisit && (
                                 <span>Last visit: {format(stats.lastVisit, "MMM dd, yyyy")}</span>
                               )}
@@ -1448,7 +1448,7 @@ export default function BusinessManagementApp() {
                               <p className="text-sm text-muted-foreground">Invoice{stats.invoiceCount !== 1 ? 's' : ''}</p>
                             </div>
                             <div className="text-center p-3 bg-accent/20 rounded-lg">
-                              <p className="text-2xl font-bold text-primary">${stats.totalSpent.toFixed(2)}</p>
+                              <p className="text-2xl font-bold text-primary">{formatCurrency(stats.totalSpent)}</p>
                               <p className="text-sm text-muted-foreground">Total Spent</p>
                             </div>
                           </div>
@@ -1505,22 +1505,19 @@ export default function BusinessManagementApp() {
                       
                       return customerAppointments.length > 0 ? (
                         <div className="space-y-3">
-                          {customerAppointments.map((appointment) => {
-                            const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
-                            return (
-                              <div key={appointment.id} className="flex items-center justify-between p-3 border rounded-lg">
-                                <div>
-                                  <p className="font-medium">{appointment.service}</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    {vehicle?.year} {vehicle?.make} {vehicle?.model} • {format(appointment.date, "MMM dd, yyyy")} at {appointment.time}
-                                  </p>
-                                </div>
-                                <Badge variant={appointment.status === 'completed' ? 'default' : 'secondary'}>
-                                  {appointment.status}
-                                </Badge>
+                          {customerAppointments.map((appointment) => (
+                            <div key={appointment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                              <div>
+                                <p className="font-medium">{appointment.service}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {vehicle?.year} {vehicle?.make} {vehicle?.model} • {format(appointment.date, "MMM dd, yyyy")} at {appointment.time}
+                                </p>
                               </div>
-                            );
-                          })}
+                              <Badge variant={appointment.status === 'completed' ? 'default' : 'secondary'}>
+                                {appointment.status}
+                              </Badge>
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <p className="text-muted-foreground text-center py-4">No appointments found</p>
@@ -1552,7 +1549,7 @@ export default function BusinessManagementApp() {
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="font-semibold">${invoice.total.toFixed(2)}</p>
+                                <p className="font-semibold">{formatCurrency(invoice.total)}</p>
                                 <Badge variant={
                                   invoice.status === 'paid' ? 'default' : 
                                   invoice.status === 'overdue' ? 'destructive' : 'secondary'
@@ -1713,7 +1710,7 @@ export default function BusinessManagementApp() {
                         </div>
                         <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-2">
                           <span>{stats.appointmentCount} appointment{stats.appointmentCount !== 1 ? 's' : ''}</span>
-                          <span>${stats.totalSpent.toFixed(2)} total spent</span>
+                          <span>{formatCurrency(stats.totalSpent)} total spent</span>
                           {stats.lastService && (
                             <span>Last service: {format(stats.lastService, "MMM dd, yyyy")}</span>
                           )}
@@ -1904,7 +1901,7 @@ export default function BusinessManagementApp() {
                             <p className="text-sm text-muted-foreground">Invoice{stats.invoiceCount !== 1 ? 's' : ''}</p>
                           </div>
                           <div className="text-center p-3 bg-accent/20 rounded-lg">
-                            <p className="text-2xl font-bold text-primary">${stats.totalSpent.toFixed(2)}</p>
+                            <p className="text-2xl font-bold text-primary">{formatCurrency(stats.totalSpent)}</p>
                             <p className="text-sm text-muted-foreground">Total Spent</p>
                           </div>
                           <div className="text-center p-3 bg-accent/20 rounded-lg">
@@ -1983,7 +1980,7 @@ export default function BusinessManagementApp() {
                               </p>
                             </div>
                             <div className="text-right">
-                              <p className="font-semibold">${invoice.total.toFixed(2)}</p>
+                              <p className="font-semibold">{formatCurrency(invoice.total)}</p>
                               <Badge variant={
                                 invoice.status === 'paid' ? 'default' : 
                                 invoice.status === 'overdue' ? 'destructive' : 'secondary'
@@ -2990,7 +2987,7 @@ export default function BusinessManagementApp() {
                               <div className="flex-1">
                                 <h4 className="font-medium">{product.name}</h4>
                                 <p className="text-sm text-muted-foreground">{product.description}</p>
-                                <p className="text-sm font-semibold text-primary">${product.price}</p>
+                                <p className="text-sm font-semibold text-primary">{formatCurrency(product.price)}</p>
                               </div>
                               <Button 
                                 size="sm" 
@@ -3025,8 +3022,8 @@ export default function BusinessManagementApp() {
                               />
                             </div>
                             <div className="text-right">
-                              <p className="text-sm text-muted-foreground">${item.price} each</p>
-                              <p className="font-semibold">${item.total.toFixed(2)}</p>
+                              <p className="text-sm text-muted-foreground">{formatCurrency(item.price)} each</p>
+                              <p className="font-semibold">{formatCurrency(item.total)}</p>
                             </div>
                             <Button 
                               variant="outline" 
@@ -3052,16 +3049,16 @@ export default function BusinessManagementApp() {
                     <div className="space-y-2 max-w-sm ml-auto">
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
-                        <span>${totals.subtotal.toFixed(2)}</span>
+                        <span>{formatCurrency(totals.subtotal)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Tax (8.5%):</span>
-                        <span>${totals.tax.toFixed(2)}</span>
+                        <span>{formatCurrency(totals.tax)}</span>
                       </div>
                       <Separator />
                       <div className="flex justify-between font-semibold text-lg">
                         <span>Total:</span>
-                        <span>${totals.total.toFixed(2)}</span>
+                        <span>{formatCurrency(totals.total)}</span>
                       </div>
                     </div>
                   </div>
@@ -3198,7 +3195,7 @@ export default function BusinessManagementApp() {
                         </div>
                         <div className="flex items-center space-x-4">
                           <div className="text-right">
-                            <p className="text-2xl font-bold text-primary">${invoice.total.toFixed(2)}</p>
+                            <p className="text-2xl font-bold text-primary">{formatCurrency(invoice.total)}</p>
                             <Badge variant={
                               invoice.status === 'paid' ? 'default' : 
                               invoice.status === 'overdue' ? 'destructive' : 
@@ -3344,16 +3341,16 @@ export default function BusinessManagementApp() {
                       <div className="space-y-3">
                         <div className="flex justify-between">
                           <span>Subtotal:</span>
-                          <span>${viewingInvoice.subtotal.toFixed(2)}</span>
+                          <span>{formatCurrency(viewingInvoice.subtotal)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Tax ({viewingInvoice.taxRate}%):</span>
-                          <span>${viewingInvoice.tax.toFixed(2)}</span>
+                          <span>{formatCurrency(viewingInvoice.tax)}</span>
                         </div>
                         <Separator />
                         <div className="flex justify-between font-semibold text-lg">
                           <span>Total:</span>
-                          <span className="text-primary">${viewingInvoice.total.toFixed(2)}</span>
+                          <span className="text-primary">{formatCurrency(viewingInvoice.total)}</span>
                         </div>
                       </div>
                     </CardContent>
@@ -3375,9 +3372,9 @@ export default function BusinessManagementApp() {
                           </div>
                           <div className="text-right">
                             <p className="text-sm text-muted-foreground">
-                              {item.quantity} × ${item.price.toFixed(2)}
+                              {item.quantity} × {formatCurrency(item.price)}
                             </p>
-                            <p className="font-semibold">${item.total.toFixed(2)}</p>
+                            <p className="font-semibold">{formatCurrency(item.total)}</p>
                           </div>
                         </div>
                       ))}
@@ -3507,8 +3504,8 @@ export default function BusinessManagementApp() {
                             />
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-muted-foreground">${item.price} each</p>
-                            <p className="font-semibold">${item.total.toFixed(2)}</p>
+                            <p className="text-sm text-muted-foreground">{formatCurrency(item.price)} each</p>
+                            <p className="font-semibold">{formatCurrency(item.total)}</p>
                           </div>
                           <Button 
                             variant="outline" 
@@ -3534,16 +3531,16 @@ export default function BusinessManagementApp() {
                     <div className="space-y-2 max-w-sm ml-auto">
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
-                        <span>${editingInvoice.items.reduce((sum, item) => sum + item.total, 0).toFixed(2)}</span>
+                        <span>{formatCurrency(editingInvoice.items.reduce((sum, item) => sum + item.total, 0))}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Tax ({editingInvoice.taxRate}%):</span>
-                        <span>${(editingInvoice.items.reduce((sum, item) => sum + item.total, 0) * (editingInvoice.taxRate / 100)).toFixed(2)}</span>
+                        <span>{formatCurrency(editingInvoice.items.reduce((sum, item) => sum + item.total, 0) * (editingInvoice.taxRate / 100))}</span>
                       </div>
                       <Separator />
                       <div className="flex justify-between font-semibold text-lg">
                         <span>Total:</span>
-                        <span>${(editingInvoice.items.reduce((sum, item) => sum + item.total, 0) * (1 + editingInvoice.taxRate / 100)).toFixed(2)}</span>
+                        <span>{formatCurrency(editingInvoice.items.reduce((sum, item) => sum + item.total, 0) * (1 + editingInvoice.taxRate / 100))}</span>
                       </div>
                     </div>
                   </div>
@@ -4561,7 +4558,7 @@ export default function BusinessManagementApp() {
                               <div className="flex-1">
                                 <h4 className="font-medium">{product.name}</h4>
                                 <p className="text-sm text-muted-foreground">{product.description}</p>
-                                <p className="text-sm font-semibold text-primary">${product.price}</p>
+                                <p className="text-sm font-semibold text-primary">{formatCurrency(product.price)}</p>
                               </div>
                               <Button 
                                 size="sm" 
@@ -4596,8 +4593,8 @@ export default function BusinessManagementApp() {
                               />
                             </div>
                             <div className="text-right">
-                              <p className="text-sm text-muted-foreground">${item.price} each</p>
-                              <p className="font-semibold">${item.total.toFixed(2)}</p>
+                              <p className="text-sm text-muted-foreground">{formatCurrency(item.price)} each</p>
+                              <p className="font-semibold">{formatCurrency(item.total)}</p>
                             </div>
                             <Button 
                               variant="outline" 
@@ -4623,16 +4620,16 @@ export default function BusinessManagementApp() {
                     <div className="space-y-2 max-w-sm ml-auto">
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
-                        <span>${totals.subtotal.toFixed(2)}</span>
+                        <span>{formatCurrency(totals.subtotal)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Tax (8.5%):</span>
-                        <span>${totals.tax.toFixed(2)}</span>
+                        <span>{formatCurrency(totals.tax)}</span>
                       </div>
                       <Separator />
                       <div className="flex justify-between font-semibold text-lg">
                         <span>Total:</span>
-                        <span>${totals.total.toFixed(2)}</span>
+                        <span>{formatCurrency(totals.total)}</span>
                       </div>
                     </div>
                   </div>
@@ -4793,7 +4790,7 @@ export default function BusinessManagementApp() {
                           </div>
                           <div className="flex items-center space-x-4">
                             <div className="text-right">
-                              <p className="text-2xl font-bold text-primary">${estimate.total.toFixed(2)}</p>
+                              <p className="text-2xl font-bold text-primary">{formatCurrency(estimate.total)}</p>
                               <Badge variant={
                                 estimate.status === 'approved' ? 'default' : 
                                 estimate.status === 'declined' ? 'destructive' : 
@@ -4950,16 +4947,16 @@ export default function BusinessManagementApp() {
                       <div className="space-y-3">
                         <div className="flex justify-between">
                           <span>Subtotal:</span>
-                          <span>${viewingEstimate.subtotal.toFixed(2)}</span>
+                          <span>{formatCurrency(viewingEstimate.subtotal)}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Tax ({viewingEstimate.taxRate}%):</span>
-                          <span>${viewingEstimate.tax.toFixed(2)}</span>
+                          <span>{formatCurrency(viewingEstimate.tax)}</span>
                         </div>
                         <Separator />
                         <div className="flex justify-between font-semibold text-lg">
                           <span>Total:</span>
-                          <span className="text-primary">${viewingEstimate.total.toFixed(2)}</span>
+                          <span className="text-primary">{formatCurrency(viewingEstimate.total)}</span>
                         </div>
                       </div>
                     </CardContent>
@@ -4981,9 +4978,9 @@ export default function BusinessManagementApp() {
                           </div>
                           <div className="text-right">
                             <p className="text-sm text-muted-foreground">
-                              {item.quantity} × ${item.price.toFixed(2)}
+                              {item.quantity} × {formatCurrency(item.price)}
                             </p>
-                            <p className="font-semibold">${item.total.toFixed(2)}</p>
+                            <p className="font-semibold">{formatCurrency(item.total)}</p>
                           </div>
                         </div>
                       ))}
@@ -5105,8 +5102,8 @@ export default function BusinessManagementApp() {
                             />
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-muted-foreground">${item.price} each</p>
-                            <p className="font-semibold">${item.total.toFixed(2)}</p>
+                            <p className="text-sm text-muted-foreground">{formatCurrency(item.price)} each</p>
+                            <p className="font-semibold">{formatCurrency(item.total)}</p>
                           </div>
                           <Button 
                             variant="outline" 
@@ -5132,16 +5129,16 @@ export default function BusinessManagementApp() {
                     <div className="space-y-2 max-w-sm ml-auto">
                       <div className="flex justify-between">
                         <span>Subtotal:</span>
-                        <span>${editingEstimate.items.reduce((sum, item) => sum + item.total, 0).toFixed(2)}</span>
+                        <span>{formatCurrency(editingEstimate.items.reduce((sum, item) => sum + item.total, 0))}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Tax ({editingEstimate.taxRate}%):</span>
-                        <span>${(editingEstimate.items.reduce((sum, item) => sum + item.total, 0) * (editingEstimate.taxRate / 100)).toFixed(2)}</span>
+                        <span>{formatCurrency(editingEstimate.items.reduce((sum, item) => sum + item.total, 0) * (editingEstimate.taxRate / 100))}</span>
                       </div>
                       <Separator />
                       <div className="flex justify-between font-semibold text-lg">
                         <span>Total:</span>
-                        <span>${(editingEstimate.items.reduce((sum, item) => sum + item.total, 0) * (1 + editingEstimate.taxRate / 100)).toFixed(2)}</span>
+                        <span>{formatCurrency(editingEstimate.items.reduce((sum, item) => sum + item.total, 0) * (1 + editingEstimate.taxRate / 100))}</span>
                       </div>
                     </div>
                   </div>
@@ -6322,15 +6319,15 @@ export default function BusinessManagementApp() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {[
-                    { name: 'Oil Change', price: '$49.99', image: 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?w=300&h=200&fit=crop' },
-                    { name: 'Brake Service', price: '$129.99', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=200&fit=crop' },
-                    { name: 'Tire Rotation', price: '$39.99', image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=300&h=200&fit=crop' }
+                    { name: 'Oil Change', price: 49.99, image: 'https://images.unsplash.com/photo-1487754180451-c456f719a1fc?w=300&h=200&fit=crop' },
+                    { name: 'Brake Service', price: 129.99, image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300&h=200&fit=crop' },
+                    { name: 'Tire Rotation', price: 39.99, image: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=300&h=200&fit=crop' }
                   ].map((service, index) => (
                     <Card key={index}>
                       <CardContent className="p-4">
                         <img src={service.image} alt={service.name} className="w-full h-32 object-cover rounded mb-4" />
                         <h3 className="font-semibold text-lg">{service.name}</h3>
-                        <p className="text-2xl font-bold text-primary">{service.price}</p>
+                        <p className="text-2xl font-bold text-primary">{formatCurrency(service.price)}</p>
                       </CardContent>
                     </Card>
                   ))}
