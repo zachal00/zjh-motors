@@ -5224,6 +5224,8 @@ export default function BusinessManagementApp() {
           businessPhone: '+1 (555) 123-4567',
           businessEmail: 'info@autopro.com',
           logo: 'https://assets.co.dev/f04d1c9e-1c8e-4e1f-a9f2-8889d85dd7b5/file-8b0eaf8.png',
+          logoWidth: 40,
+          logoHeight: 40,
           showLogo: true
         },
         layout: {
@@ -5264,6 +5266,8 @@ export default function BusinessManagementApp() {
           businessPhone: '+1 (555) 123-4567',
           businessEmail: 'info@autopro.com',
           logo: 'https://assets.co.dev/f04d1c9e-1c8e-4e1f-a9f2-8889d85dd7b5/file-8b0eaf8.png',
+          logoWidth: 40,
+          logoHeight: 40,
           showLogo: true
         },
         layout: {
@@ -5299,6 +5303,8 @@ export default function BusinessManagementApp() {
           businessPhone: '+1 (555) 123-4567',
           businessEmail: 'info@autopro.com',
           logo: 'https://assets.co.dev/f04d1c9e-1c8e-4e1f-a9f2-8889d85dd7b5/file-8b0eaf8.png',
+          logoWidth: 40,
+          logoHeight: 40,
           showLogo: true
         },
         layout: {
@@ -5426,7 +5432,14 @@ export default function BusinessManagementApp() {
                         {/* Header */}
                         <div className="flex justify-between items-start border-b pb-4">
                           <div className="flex items-center gap-4">
-                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo} showText={false} />}
+                            {currentTemplate.header.showLogo && (
+                              <Logo 
+                                src={currentTemplate.header.logo} 
+                                showText={false} 
+                                width={currentTemplate.header.logoWidth}
+                                height={currentTemplate.header.logoHeight}
+                              />
+                            )}
                             <div>
                               <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
                               <p className="text-sm">{currentTemplate.header.businessAddress}</p>
@@ -5619,7 +5632,14 @@ export default function BusinessManagementApp() {
                         {/* Header */}
                         <div className="flex justify-between items-start border-b pb-4">
                           <div className="flex items-center gap-4">
-                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo} showText={false} />}
+                            {currentTemplate.header.showLogo && (
+                              <Logo 
+                                src={currentTemplate.header.logo} 
+                                showText={false} 
+                                width={currentTemplate.header.logoWidth}
+                                height={currentTemplate.header.logoHeight}
+                              />
+                            )}
                             <div>
                               <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
                               <p className="text-sm">{currentTemplate.header.businessAddress}</p>
@@ -5797,7 +5817,14 @@ export default function BusinessManagementApp() {
                         {/* Header */}
                         <div className="flex justify-between items-start border-b pb-4">
                           <div className="flex items-center gap-4">
-                            {currentTemplate.header.showLogo && <Logo src={currentTemplate.header.logo} showText={false} />}
+                            {currentTemplate.header.showLogo && (
+                              <Logo 
+                                src={currentTemplate.header.logo} 
+                                showText={false} 
+                                width={currentTemplate.header.logoWidth}
+                                height={currentTemplate.header.logoHeight}
+                              />
+                            )}
                             <div>
                               <h1 className="text-2xl font-bold">{currentTemplate.header.businessName}</h1>
                               <p className="text-sm">{currentTemplate.header.businessAddress}</p>
@@ -6028,6 +6055,32 @@ export default function BusinessManagementApp() {
                             header: { ...prev.header, logo: e.target.value }
                           }))}
                         />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="logo-width">Logo Width (px)</Label>
+                          <Input 
+                            id="logo-width" 
+                            type="number"
+                            value={editingTemplate.header.logoWidth}
+                            onChange={(e) => setEditingTemplate(prev => ({
+                              ...prev,
+                              header: { ...prev.header, logoWidth: parseInt(e.target.value) || 0 }
+                            }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="logo-height">Logo Height (px)</Label>
+                          <Input 
+                            id="logo-height" 
+                            type="number"
+                            value={editingTemplate.header.logoHeight}
+                            onChange={(e) => setEditingTemplate(prev => ({
+                              ...prev,
+                              header: { ...prev.header, logoHeight: parseInt(e.target.value) || 0 }
+                            }))}
+                          />
+                        </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         <input
