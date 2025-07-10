@@ -371,6 +371,23 @@ export default function BusinessManagementApp() {
   const [isAddAppointmentDialogOpen, setIsAddAppointmentDialogOpen] = useState(false);
   const [isAddInvoiceDialogOpen, setIsAddInvoiceDialogOpen] = useState(false);
   const [isAddServiceCheckDialogOpen, setIsAddServiceCheckDialogOpen] = useState(false);
+  const [emailSettings, setEmailSettings] = useState({
+    host: 'smtp.example.com',
+    port: 587,
+    user: 'your_email@example.com',
+    pass: 'your_email_password',
+    secure: false,
+    from: 'your_business@example.com'
+  });
+  const [smsSettings, setSmsSettings] = useState({
+    accountSid: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    authToken: 'your_twilio_auth_token',
+    phoneNumber: '+15017122661'
+  });
+  const [googleCalendarSettings, setGoogleCalendarSettings] = useState({
+    clientId: 'YOUR_GOOGLE_CLIENT_ID',
+    clientSecret: 'YOUR_GOOGLE_CLIENT_SECRET'
+  });
 
   // Invoice management states
   const [isInvoiceViewDialogOpen, setIsInvoiceViewDialogOpen] = useState(false);
@@ -7110,37 +7127,136 @@ export default function BusinessManagementApp() {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Notifications</CardTitle>
-                  <CardDescription>Configure email and SMS settings</CardDescription>
+                  <CardTitle>Email Settings</CardTitle>
+                  <CardDescription>Configure your outgoing email (SMTP) settings.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="smtp-server">SMTP Server</Label>
-                    <Input id="smtp-server" placeholder="smtp.gmail.com" />
+                    <Label htmlFor="smtp-host">SMTP Host</Label>
+                    <Input
+                      id="smtp-host"
+                      placeholder="smtp.example.com"
+                      value={emailSettings.host}
+                      onChange={(e) => setEmailSettings(prev => ({ ...prev, host: e.target.value }))}
+                    />
                   </div>
                   <div>
-                    <Label htmlFor="sms-provider">SMS Provider</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select SMS provider" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="twilio">Twilio</SelectItem>
-                        <SelectItem value="nexmo">Nexmo</SelectItem>
-                        <SelectItem value="aws-sns">AWS SNS</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="smtp-port">SMTP Port</Label>
+                    <Input
+                      id="smtp-port"
+                      type="number"
+                      placeholder="587"
+                      value={emailSettings.port}
+                      onChange={(e) => setEmailSettings(prev => ({ ...prev, port: parseInt(e.target.value) || 587 }))}
+                    />
                   </div>
-                  <Button>Configure Notifications</Button>
+                  <div>
+                    <Label htmlFor="smtp-user">SMTP Username</Label>
+                    <Input
+                      id="smtp-user"
+                      placeholder="your_email@example.com"
+                      value={emailSettings.user}
+                      onChange={(e) => setEmailSettings(prev => ({ ...prev, user: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="smtp-pass">SMTP Password</Label>
+                    <Input
+                      id="smtp-pass"
+                      type="password"
+                      placeholder="Your email password"
+                      value={emailSettings.pass}
+                      onChange={(e) => setEmailSettings(prev => ({ ...prev, pass: e.target.value }))}
+                    />
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="smtp-secure"
+                      checked={emailSettings.secure}
+                      onCheckedChange={(checked) => setEmailSettings(prev => ({ ...prev, secure: checked }))}
+                    />
+                    <Label htmlFor="smtp-secure">Use SSL/TLS (Secure Connection)</Label>
+                  </div>
+                  <div>
+                    <Label htmlFor="email-from">Sender Email Address</Label>
+                    <Input
+                      id="email-from"
+                      placeholder="your_business@example.com"
+                      value={emailSettings.from}
+                      onChange={(e) => setEmailSettings(prev => ({ ...prev, from: e.target.value }))}
+                    />
+                  </div>
+                  <Button>Save Email Settings</Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>SMS Settings (Twilio)</CardTitle>
+                  <CardDescription>Configure your Twilio account for sending SMS messages.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="twilio-sid">Twilio Account SID</Label>
+                    <Input
+                      id="twilio-sid"
+                      placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                      value={smsSettings.accountSid}
+                      onChange={(e) => setSmsSettings(prev => ({ ...prev, accountSid: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="twilio-token">Twilio Auth Token</Label>
+                    <Input
+                      id="twilio-token"
+                      type="password"
+                      placeholder="your_twilio_auth_token"
+                      value={smsSettings.authToken}
+                      onChange={(e) => setSmsSettings(prev => ({ ...prev, authToken: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="twilio-phone">Twilio Phone Number</Label>
+                    <Input
+                      id="twilio-phone"
+                      placeholder="+15017122661"
+                      value={smsSettings.phoneNumber}
+                      onChange={(e) => setSmsSettings(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                    />
+                  </div>
+                  <Button>Save SMS Settings</Button>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
                   <CardTitle>Google Calendar Integration</CardTitle>
-                  <CardDescription>Sync appointments with Google Calendar</CardDescription>
+                  <CardDescription>Sync appointments with Google Calendar.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="google-client-id">Google Client ID</Label>
+                    <Input
+                      id="google-client-id"
+                      placeholder="YOUR_GOOGLE_CLIENT_ID"
+                      value={googleCalendarSettings.clientId}
+                      onChange={(e) => setGoogleCalendarSettings(prev => ({ ...prev, clientId: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="google-client-secret">Google Client Secret</Label>
+                    <Input
+                      id="google-client-secret"
+                      type="password"
+                      placeholder="YOUR_GOOGLE_CLIENT_SECRET"
+                      value={googleCalendarSettings.clientSecret}
+                      onChange={(e) => setGoogleCalendarSettings(prev => ({ ...prev, clientSecret: e.target.value }))}
+                    />
+                  </div>
+                  <Button>Save Google API Keys</Button>
+
+                  <Separator />
+
                   <div className="flex items-center space-x-2">
                     {isCalendarConnected ? (
                       <CheckCircle className="h-5 w-5 text-green-600" />
