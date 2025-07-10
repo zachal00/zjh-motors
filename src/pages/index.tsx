@@ -6556,7 +6556,7 @@ export default function BusinessManagementApp() {
       enabled: true,
       daysBefore: 1,
       email: true,
-      sms: false,
+      sms: true,
       template: "Hi {customer_name}, this is a reminder for your appointment for your {vehicle_make} {vehicle_model} on {appointment_date} at {appointment_time}. Thanks, {business_name}."
     });
 
@@ -6564,7 +6564,7 @@ export default function BusinessManagementApp() {
       enabled: true,
       weeksBefore: 2,
       email: true,
-      sms: false,
+      sms: true,
       template: "Hi {customer_name}, your {vehicle_make} {vehicle_model} is due for its next service around {service_due_date}. Please book an appointment at your convenience. Thanks, {business_name}."
     });
 
@@ -6575,6 +6575,133 @@ export default function BusinessManagementApp() {
     });
 
     const [isSendingMarketing, setIsSendingMarketing] = useState(false);
+
+    const checkAndSendReminders = async () => {
+      console.log("Checking for reminders to send...");
+      const now = new Date();
+
+      // Appointment Reminders
+      if (appointmentReminders.enabled) {
+        const upcomingAppointments = appointments.filter(a => {
+          const appointmentDate = new Date(a.date);
+          const reminderDate = new Date(appointmentDate);
+          reminderDate.setDate(reminderDate.getDate() - appointmentReminders.daysBefore);
+          // Check if reminder should be sent today
+          return reminderDate.toDateString() === now.toDateString();
+        });
+
+        for (const appointment of upcomingAppointments) {
+          const customer = customers.find(c => c.id === appointment.customerId);
+          const vehicle = vehicles.find(v => v.id === appointment.vehicleId);
+          if (customer && vehicle) {
+            const message = appointmentReminders.template
+              .replace(/{customer_name}/g, customer.name)
+              .replace(/{vehicle_make}/g, vehicle.make)
+              .replace(/{vehicle_model}/g, vehicle.model)
+              .replace(/{appointment_date}/g, format(new Date(appointment.date), "PPP"))
+              .replace(/{appointment_time}/g, appointment.time)
+              .replace(/{business_name}/g, 'AutoPro Service Center');
+
+            if (appointmentReminders.email && customer.email) {
+              console.log(`Sending appointment reminder email to ${customer.email}`);
+              await fetch('/api/notifications/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'reminder',
+                  channel: 'email',
+                  recipients: [{ email: customer.email, phone: customer.phone }],
+                  message,
+                  subject: `Appointment Reminder for ${vehicle.make} ${vehicle.model}`,
+                }),
+              });
+            }
+            if (appointmentReminders.sms && customer.phone) {
+              console.log(`Sending appointment reminder SMS to ${customer.phone}`);
+              await fetch('/api/notifications/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'reminder',
+                  channel: 'sms',
+                  recipients: [{ email: customer.email, phone: customer.phone }],
+                  message,
+                }),
+              });
+            }
+          }
+        }
+      }
+
+      // Service Reminders (assuming 6 month service interval)
+      if (serviceReminders.enabled) {
+        const sixMonthsInMs = 6 * 30 * 24 * 60 * 60 * 1000;
+        
+        for (const customer of customers) {
+          const customerAppointments = appointments
+            .filter(a => a.customerId === customer.id && a.status === 'completed')
+            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+          if (customerAppointments.length > 0) {
+            const lastServiceDate = new Date(customerAppointments[0].date);
+            const nextServiceDueDate = new Date(lastServiceDate.getTime() + sixMonthsInMs);
+            
+            const reminderDate = new Date(nextServiceDueDate);
+            reminderDate.setDate(reminderDate.getDate() - (serviceReminders.weeksBefore * 7));
+
+            if (reminderDate.toDateString() === now.toDateString()) {
+              const vehicle = vehicles.find(v => v.id === customerAppointments[0].vehicleId);
+              if (vehicle) {
+                const message = serviceReminders.template
+                  .replace(/{customer_name}/g, customer.name)
+                  .replace(/{vehicle_make}/g, vehicle.make)
+                  .replace(/{vehicle_model}/g, vehicle.model)
+                  .replace(/{service_due_date}/g, format(nextServiceDueDate, "PPP"))
+                  .replace(/{business_name}/g, 'AutoPro Service Center');
+
+                if (serviceReminders.email && customer.email) {
+                  console.log(`Sending service reminder email to ${customer.email}`);
+                  await fetch('/api/notifications/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      type: 'service_reminder',
+                      channel: 'email',
+                      recipients: [{ email: customer.email, phone: customer.phone }],
+                      message,
+                      subject: `Service Reminder for your ${vehicle.make} ${vehicle.model}`,
+                    }),
+                  });
+                }
+                if (serviceReminders.sms && customer.phone) {
+                  console.log(`Sending service reminder SMS to ${customer.phone}`);
+                  await fetch('/api/notifications/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      type: 'service_reminder',
+                      channel: 'sms',
+                      recipients: [{ email: customer.email, phone: customer.phone }],
+                      message,
+                    }),
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+
+    useEffect(() => {
+      // This simulates a daily check when the app loads.
+      // In a real-world scenario, this would be a cron job on the server.
+      const timer = setTimeout(() => {
+        checkAndSendReminders();
+      }, 2000); // Delay to allow data to load
+
+      return () => clearTimeout(timer);
+    }, []);
 
     const handleSendMarketing = async () => {
       if (!marketingMessage.message) {
