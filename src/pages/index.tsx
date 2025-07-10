@@ -42,6 +42,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
@@ -895,6 +896,7 @@ export default function BusinessManagementApp() {
     { id: 'products', label: 'Products', icon: Package },
     { id: 'templates', label: 'Templates', icon: FileText },
     { id: 'website', label: 'Website', icon: Eye },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
@@ -6549,6 +6551,282 @@ export default function BusinessManagementApp() {
     </motion.div>
   );
 
+  const NotificationsContent = () => {
+    const [appointmentReminders, setAppointmentReminders] = useState({
+      enabled: true,
+      daysBefore: 1,
+      email: true,
+      sms: false,
+      template: "Hi {customer_name}, this is a reminder for your appointment for your {vehicle_make} {vehicle_model} on {appointment_date} at {appointment_time}. Thanks, {business_name}."
+    });
+
+    const [serviceReminders, setServiceReminders] = useState({
+      enabled: true,
+      weeksBefore: 2,
+      email: true,
+      sms: false,
+      template: "Hi {customer_name}, your {vehicle_make} {vehicle_model} is due for its next service around {service_due_date}. Please book an appointment at your convenience. Thanks, {business_name}."
+    });
+
+    const [marketingMessage, setMarketingMessage] = useState({
+      recipients: 'all',
+      channel: 'email',
+      message: ''
+    });
+
+    const handleSendMarketing = () => {
+      if (!marketingMessage.message) {
+        alert('Please enter a message to send.');
+        return;
+      }
+      // In a real app, this would trigger an API call to a backend service
+      console.log('Sending marketing message:', marketingMessage);
+      alert(`Marketing message sent via ${marketingMessage.channel} to ${marketingMessage.recipients} customers.`);
+      setMarketingMessage(prev => ({ ...prev, message: '' }));
+    };
+
+    return (
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="space-y-6"
+      >
+        <motion.div variants={fadeInUp}>
+          <h2 className="text-3xl font-bold text-primary mb-2">Notifications</h2>
+          <p className="text-muted-foreground">Manage automated reminders and marketing messages</p>
+        </motion.div>
+
+        <motion.div variants={fadeInUp}>
+          <Tabs defaultValue="reminders" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="reminders">Appointment Reminders</TabsTrigger>
+              <TabsTrigger value="service">Service Reminders</TabsTrigger>
+              <TabsTrigger value="marketing">Marketing</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="reminders" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Appointment Reminders</CardTitle>
+                  <CardDescription>Automatically notify customers about upcoming appointments.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <Label htmlFor="enable-appointment-reminders" className="font-medium">Enable Appointment Reminders</Label>
+                    <Switch
+                      id="enable-appointment-reminders"
+                      checked={appointmentReminders.enabled}
+                      onCheckedChange={(checked) => setAppointmentReminders(prev => ({ ...prev, enabled: checked }))}
+                    />
+                  </div>
+                  
+                  <AnimatePresence>
+                    {appointmentReminders.enabled && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-4 overflow-hidden"
+                      >
+                        <div>
+                          <Label htmlFor="reminder-time">Send Reminder</Label>
+                          <Select
+                            value={String(appointmentReminders.daysBefore)}
+                            onValueChange={(value) => setAppointmentReminders(prev => ({ ...prev, daysBefore: Number(value) }))}
+                          >
+                            <SelectTrigger id="reminder-time">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1 day before appointment</SelectItem>
+                              <SelectItem value="2">2 days before appointment</SelectItem>
+                              <SelectItem value="3">3 days before appointment</SelectItem>
+                              <SelectItem value="7">1 week before appointment</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="enable-email-reminders"
+                              checked={appointmentReminders.email}
+                              onCheckedChange={(checked) => setAppointmentReminders(prev => ({ ...prev, email: checked }))}
+                            />
+                            <Label htmlFor="enable-email-reminders">Via Email</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="enable-sms-reminders"
+                              checked={appointmentReminders.sms}
+                              onCheckedChange={(checked) => setAppointmentReminders(prev => ({ ...prev, sms: checked }))}
+                            />
+                            <Label htmlFor="enable-sms-reminders">Via SMS</Label>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="reminder-template">Message Template</Label>
+                          <Textarea
+                            id="reminder-template"
+                            value={appointmentReminders.template}
+                            onChange={(e) => setAppointmentReminders(prev => ({ ...prev, template: e.target.value }))}
+                            rows={4}
+                          />
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Use placeholders like {"{customer_name}"}, {"{vehicle_make}"}, {"{appointment_date}"}, etc.
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="service" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Next Service Reminders</CardTitle>
+                  <CardDescription>Remind customers when their next service is due.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <Label htmlFor="enable-service-reminders" className="font-medium">Enable Service Reminders</Label>
+                    <Switch
+                      id="enable-service-reminders"
+                      checked={serviceReminders.enabled}
+                      onCheckedChange={(checked) => setServiceReminders(prev => ({ ...prev, enabled: checked }))}
+                    />
+                  </div>
+                  
+                  <AnimatePresence>
+                    {serviceReminders.enabled && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="space-y-4 overflow-hidden"
+                      >
+                        <div>
+                          <Label htmlFor="service-reminder-time">Send Reminder</Label>
+                          <Select
+                            value={String(serviceReminders.weeksBefore)}
+                            onValueChange={(value) => setServiceReminders(prev => ({ ...prev, weeksBefore: Number(value) }))}
+                          >
+                            <SelectTrigger id="service-reminder-time">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">1 week before due</SelectItem>
+                              <SelectItem value="2">2 weeks before due</SelectItem>
+                              <SelectItem value="4">1 month before due</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="flex items-center space-x-4">
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="enable-email-service"
+                              checked={serviceReminders.email}
+                              onCheckedChange={(checked) => setServiceReminders(prev => ({ ...prev, email: checked }))}
+                            />
+                            <Label htmlFor="enable-email-service">Via Email</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="enable-sms-service"
+                              checked={serviceReminders.sms}
+                              onCheckedChange={(checked) => setServiceReminders(prev => ({ ...prev, sms: checked }))}
+                            />
+                            <Label htmlFor="enable-sms-service">Via SMS</Label>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="service-template">Message Template</Label>
+                          <Textarea
+                            id="service-template"
+                            value={serviceReminders.template}
+                            onChange={(e) => setServiceReminders(prev => ({ ...prev, template: e.target.value }))}
+                            rows={4}
+                          />
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Use placeholders like {"{customer_name}"}, {"{vehicle_make}"}, {"{service_due_date}"}, etc.
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="marketing" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Marketing Messages</CardTitle>
+                  <CardDescription>Send promotional messages to your customers.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <Label htmlFor="marketing-recipients">Recipients</Label>
+                    <Select
+                      value={marketingMessage.recipients}
+                      onValueChange={(value) => setMarketingMessage(prev => ({ ...prev, recipients: value }))}
+                    >
+                      <SelectTrigger id="marketing-recipients">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Customers</SelectItem>
+                        <SelectItem value="recent">Recent Customers (last 90 days)</SelectItem>
+                        <SelectItem value="inactive">Inactive Customers (no visit in 6 months)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Channel</Label>
+                    <ToggleGroup
+                      type="single"
+                      value={marketingMessage.channel}
+                      onValueChange={(value) => {
+                        if (value) setMarketingMessage(prev => ({ ...prev, channel: value }))
+                      }}
+                      className="justify-start"
+                    >
+                      <ToggleGroupItem value="email">Email</ToggleGroupItem>
+                      <ToggleGroupItem value="sms">SMS</ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="marketing-message">Message</Label>
+                    <Textarea
+                      id="marketing-message"
+                      placeholder="Type your marketing message here..."
+                      value={marketingMessage.message}
+                      onChange={(e) => setMarketingMessage(prev => ({ ...prev, message: e.target.value }))}
+                      rows={6}
+                    />
+                  </div>
+
+                  <Button onClick={handleSendMarketing} className="w-full">
+                    <Send className="mr-2 h-4 w-4" />
+                    Send Message
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </motion.div>
+      </motion.div>
+    );
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
@@ -6581,6 +6859,8 @@ export default function BusinessManagementApp() {
         return <EstimatesContent />;
       case 'templates':
         return <TemplatesContent />;
+      case 'notifications':
+        return <NotificationsContent />;
       case 'settings':
         return (
           <motion.div
