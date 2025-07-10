@@ -6574,15 +6574,61 @@ export default function BusinessManagementApp() {
       message: ''
     });
 
-    const handleSendMarketing = () => {
+    const [isSendingMarketing, setIsSendingMarketing] = useState(false);
+
+    const handleSendMarketing = async () => {
       if (!marketingMessage.message) {
         alert('Please enter a message to send.');
         return;
       }
-      // In a real app, this would trigger an API call to a backend service
-      console.log('Sending marketing message:', marketingMessage);
-      alert(`Marketing message sent via ${marketingMessage.channel} to ${marketingMessage.recipients} customers.`);
-      setMarketingMessage(prev => ({ ...prev, message: '' }));
+
+      setIsSendingMarketing(true);
+
+      try {
+        let recipientList: { email: string; phone: string }[] = [];
+        const now = new Date();
+        const ninetyDaysAgo = new Date(now.setDate(now.getDate() - 90));
+        const sixMonthsAgo = new Date(now.setMonth(now.getMonth() - 6));
+
+        if (marketingMessage.recipients === 'all') {
+          recipientList = customers.map(c => ({ email: c.email, phone: c.phone }));
+        } else if (marketingMessage.recipients === 'recent') {
+          const recentCustomers = customers.filter(c => c.createdAt >= ninetyDaysAgo);
+          recipientList = recentCustomers.map(c => ({ email: c.email, phone: c.phone }));
+        } else if (marketingMessage.recipients === 'inactive') {
+          const activeCustomerIds = new Set(
+            appointments
+              .filter(a => a.date >= sixMonthsAgo)
+              .map(a => a.customerId)
+          );
+          const inactiveCustomers = customers.filter(c => !activeCustomerIds.has(c.id));
+          recipientList = inactiveCustomers.map(c => ({ email: c.email, phone: c.phone }));
+        }
+
+        const response = await fetch('/api/notifications/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'marketing',
+            channel: marketingMessage.channel,
+            recipients: recipientList,
+            message: marketingMessage.message,
+            subject: 'A message from AutoPro Service Center',
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to send marketing message');
+        }
+
+        alert(`Marketing message sent successfully via ${marketingMessage.channel} to ${marketingMessage.recipients} customers.`);
+        setMarketingMessage(prev => ({ ...prev, message: '' }));
+      } catch (error) {
+        console.error('Error sending marketing message:', error);
+        alert('There was an error sending the marketing message. Please check the console for details.');
+      } finally {
+        setIsSendingMarketing(false);
+      }
     };
 
     return (
@@ -6814,9 +6860,18 @@ export default function BusinessManagementApp() {
                     />
                   </div>
 
-                  <Button onClick={handleSendMarketing} className="w-full">
-                    <Send className="mr-2 h-4 w-4" />
-                    Send Message
+                  <Button onClick={handleSendMarketing} className="w-full" disabled={isSendingMarketing}>
+                    {isSendingMarketing ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="mr-2 h-4 w-4" />
+                        Send Message
+                      </>
+                    )}
                   </Button>
                 </CardContent>
               </Card>
