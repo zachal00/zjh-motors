@@ -2796,6 +2796,26 @@ export default function BusinessManagementApp() {
     const [isCreating, setIsCreating] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+    const [newProduct, setNewProduct] = useState({ name: '', description: '', price: '' });
+
+    const handleCreateAndAddProduct = () => {
+      const price = parseFloat(newProduct.price);
+      if (!newProduct.name || !newProduct.price || isNaN(price) || price <= 0) {
+        alert('Please provide a valid product name and price.');
+        return;
+      }
+      const createdProduct: Product = {
+        id: `prod-${Date.now()}`,
+        name: newProduct.name,
+        description: newProduct.description,
+        price: price,
+        category: 'Service',
+        stock: 999,
+      };
+      setProducts(prev => [...prev, createdProduct]);
+      addInvoiceItem(createdProduct);
+      setNewProduct({ name: '', description: '', price: '' });
+    };
 
     const addInvoiceItem = (product: Product, quantity: number = 1) => {
       const existingItem = invoiceItems.find(item => item.productId === product.id);
@@ -2828,6 +2848,14 @@ export default function BusinessManagementApp() {
       setInvoiceItems(prev => prev.map(item => 
         item.id === itemId 
           ? { ...item, quantity, total: quantity * item.price }
+          : item
+      ));
+    };
+
+    const updateItemPrice = (itemId: string, price: number) => {
+      setInvoiceItems(prev => prev.map(item =>
+        item.id === itemId
+          ? { ...item, price, total: item.quantity * price }
           : item
       ));
     };
@@ -2995,27 +3023,66 @@ export default function BusinessManagementApp() {
                           Add Item
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
+                      <DialogContent className="max-w-4xl">
                         <DialogHeader>
                           <DialogTitle>Add Invoice Item</DialogTitle>
-                          <DialogDescription>Select products or services to add to the invoice</DialogDescription>
+                          <DialogDescription>Select an existing product or create a new one.</DialogDescription>
                         </DialogHeader>
-                        <div className="grid gap-4 max-h-96 overflow-y-auto">
-                          {products.map((product) => (
-                            <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50">
-                              <div className="flex-1">
-                                <h4 className="font-medium">{product.name}</h4>
-                                <p className="text-sm text-muted-foreground">{product.description}</p>
-                                <p className="text-sm font-semibold text-primary">{formatCurrency(product.price)}</p>
+                        <div className="grid grid-cols-2 gap-6">
+                          <div>
+                            <h4 className="font-medium mb-2">Existing Products</h4>
+                            <ScrollArea className="h-96">
+                              <div className="space-y-2 pr-4">
+                                {products.map((product) => (
+                                  <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50">
+                                    <div className="flex-1">
+                                      <h5 className="font-medium">{product.name}</h5>
+                                      <p className="text-sm text-muted-foreground">{product.description}</p>
+                                      <p className="text-sm font-semibold text-primary">{formatCurrency(product.price)}</p>
+                                    </div>
+                                    <Button size="sm" onClick={() => addInvoiceItem(product)}>Add</Button>
+                                  </div>
+                                ))}
                               </div>
-                              <Button 
-                                size="sm" 
-                                onClick={() => addInvoiceItem(product)}
-                              >
-                                Add
+                            </ScrollArea>
+                          </div>
+                          <div>
+                            <h4 className="font-medium mb-2">Create New Product</h4>
+                            <div className="space-y-4 p-4 border rounded-lg">
+                              <div>
+                                <Label htmlFor="new-prod-name">Product Name *</Label>
+                                <Input
+                                  id="new-prod-name"
+                                  value={newProduct.name}
+                                  onChange={(e) => setNewProduct(p => ({ ...p, name: e.target.value }))}
+                                  placeholder="e.g., Full Synthetic Oil"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="new-prod-desc">Description</Label>
+                                <Textarea
+                                  id="new-prod-desc"
+                                  value={newProduct.description}
+                                  onChange={(e) => setNewProduct(p => ({ ...p, description: e.target.value }))}
+                                  placeholder="e.g., 5 quarts of premium oil"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="new-prod-price">Price *</Label>
+                                <Input
+                                  id="new-prod-price"
+                                  type="number"
+                                  value={newProduct.price}
+                                  onChange={(e) => setNewProduct(p => ({ ...p, price: e.target.value }))}
+                                  placeholder="e.g., 49.99"
+                                />
+                              </div>
+                              <Button onClick={handleCreateAndAddProduct} className="w-full">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Create & Add to Invoice
                               </Button>
                             </div>
-                          ))}
+                          </div>
                         </div>
                       </DialogContent>
                     </Dialog>
@@ -3029,24 +3096,35 @@ export default function BusinessManagementApp() {
                             <p className="font-medium">{item.name}</p>
                             <p className="text-sm text-muted-foreground">{item.description}</p>
                           </div>
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-4">
                             <div className="flex items-center space-x-2">
-                              <Label className="text-sm">Qty:</Label>
-                              <Input 
-                                type="number" 
+                              <Label htmlFor={`qty-${item.id}`} className="text-sm">Qty</Label>
+                              <Input
+                                id={`qty-${item.id}`}
+                                type="number"
                                 value={item.quantity}
                                 onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
-                                className="w-16" 
+                                className="w-16"
                                 min="1"
                               />
                             </div>
-                            <div className="text-right">
-                              <p className="text-sm text-muted-foreground">{formatCurrency(item.price)} each</p>
+                            <div className="flex items-center space-x-2">
+                              <Label htmlFor={`price-${item.id}`} className="text-sm">Price (£)</Label>
+                              <Input
+                                id={`price-${item.id}`}
+                                type="number"
+                                value={item.price}
+                                onChange={(e) => updateItemPrice(item.id, parseFloat(e.target.value) || 0)}
+                                className="w-24"
+                                step="0.01"
+                              />
+                            </div>
+                            <div className="text-right w-24">
                               <p className="font-semibold">{formatCurrency(item.total)}</p>
                             </div>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
+                            <Button
+                              variant="outline"
+                              size="icon"
                               onClick={() => removeInvoiceItem(item.id)}
                             >
                               <Trash2 className="h-4 w-4" />
@@ -4387,6 +4465,26 @@ export default function BusinessManagementApp() {
     const [isCreating, setIsCreating] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const [isConverting, setIsConverting] = useState(false);
+    const [newProduct, setNewProduct] = useState({ name: '', description: '', price: '' });
+
+    const handleCreateAndAddProduct = () => {
+      const price = parseFloat(newProduct.price);
+      if (!newProduct.name || !newProduct.price || isNaN(price) || price <= 0) {
+        alert('Please provide a valid product name and price.');
+        return;
+      }
+      const createdProduct: Product = {
+        id: `prod-${Date.now()}`,
+        name: newProduct.name,
+        description: newProduct.description,
+        price: price,
+        category: 'Service',
+        stock: 999,
+      };
+      setProducts(prev => [...prev, createdProduct]);
+      addEstimateItem(createdProduct);
+      setNewProduct({ name: '', description: '', price: '' });
+    };
 
     const addEstimateItem = (product: Product, quantity: number = 1) => {
       const existingItem = estimateItems.find(item => item.productId === product.id);
@@ -4419,6 +4517,14 @@ export default function BusinessManagementApp() {
       setEstimateItems(prev => prev.map(item => 
         item.id === itemId 
           ? { ...item, quantity, total: quantity * item.price }
+          : item
+      ));
+    };
+
+    const updateItemPrice = (itemId: string, price: number) => {
+      setEstimateItems(prev => prev.map(item =>
+        item.id === itemId
+          ? { ...item, price, total: item.quantity * price }
           : item
       ));
     };
@@ -4566,27 +4672,66 @@ export default function BusinessManagementApp() {
                           Add Item
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
+                      <DialogContent className="max-w-4xl">
                         <DialogHeader>
                           <DialogTitle>Add Estimate Item</DialogTitle>
-                          <DialogDescription>Select products or services to add to the estimate</DialogDescription>
+                          <DialogDescription>Select an existing product or create a new one.</DialogDescription>
                         </DialogHeader>
-                        <div className="grid gap-4 max-h-96 overflow-y-auto">
-                          {products.map((product) => (
-                            <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50">
-                              <div className="flex-1">
-                                <h4 className="font-medium">{product.name}</h4>
-                                <p className="text-sm text-muted-foreground">{product.description}</p>
-                                <p className="text-sm font-semibold text-primary">{formatCurrency(product.price)}</p>
+                        <div className="grid grid-cols-2 gap-6">
+                          <div>
+                            <h4 className="font-medium mb-2">Existing Products</h4>
+                            <ScrollArea className="h-96">
+                              <div className="space-y-2 pr-4">
+                                {products.map((product) => (
+                                  <div key={product.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50">
+                                    <div className="flex-1">
+                                      <h5 className="font-medium">{product.name}</h5>
+                                      <p className="text-sm text-muted-foreground">{product.description}</p>
+                                      <p className="text-sm font-semibold text-primary">{formatCurrency(product.price)}</p>
+                                    </div>
+                                    <Button size="sm" onClick={() => addEstimateItem(product)}>Add</Button>
+                                  </div>
+                                ))}
                               </div>
-                              <Button 
-                                size="sm" 
-                                onClick={() => addEstimateItem(product)}
-                              >
-                                Add
+                            </ScrollArea>
+                          </div>
+                          <div>
+                            <h4 className="font-medium mb-2">Create New Product</h4>
+                            <div className="space-y-4 p-4 border rounded-lg">
+                              <div>
+                                <Label htmlFor="new-prod-name-est">Product Name *</Label>
+                                <Input
+                                  id="new-prod-name-est"
+                                  value={newProduct.name}
+                                  onChange={(e) => setNewProduct(p => ({ ...p, name: e.target.value }))}
+                                  placeholder="e.g., Full Synthetic Oil"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="new-prod-desc-est">Description</Label>
+                                <Textarea
+                                  id="new-prod-desc-est"
+                                  value={newProduct.description}
+                                  onChange={(e) => setNewProduct(p => ({ ...p, description: e.target.value }))}
+                                  placeholder="e.g., 5 quarts of premium oil"
+                                />
+                              </div>
+                              <div>
+                                <Label htmlFor="new-prod-price-est">Price *</Label>
+                                <Input
+                                  id="new-prod-price-est"
+                                  type="number"
+                                  value={newProduct.price}
+                                  onChange={(e) => setNewProduct(p => ({ ...p, price: e.target.value }))}
+                                  placeholder="e.g., 49.99"
+                                />
+                              </div>
+                              <Button onClick={handleCreateAndAddProduct} className="w-full">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Create & Add to Estimate
                               </Button>
                             </div>
-                          ))}
+                          </div>
                         </div>
                       </DialogContent>
                     </Dialog>
@@ -4600,24 +4745,35 @@ export default function BusinessManagementApp() {
                             <p className="font-medium">{item.name}</p>
                             <p className="text-sm text-muted-foreground">{item.description}</p>
                           </div>
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-4">
                             <div className="flex items-center space-x-2">
-                              <Label className="text-sm">Qty:</Label>
-                              <Input 
-                                type="number" 
+                              <Label htmlFor={`qty-est-${item.id}`} className="text-sm">Qty</Label>
+                              <Input
+                                id={`qty-est-${item.id}`}
+                                type="number"
                                 value={item.quantity}
                                 onChange={(e) => updateItemQuantity(item.id, parseInt(e.target.value) || 1)}
-                                className="w-16" 
+                                className="w-16"
                                 min="1"
                               />
                             </div>
-                            <div className="text-right">
-                              <p className="text-sm text-muted-foreground">{formatCurrency(item.price)} each</p>
+                            <div className="flex items-center space-x-2">
+                              <Label htmlFor={`price-est-${item.id}`} className="text-sm">Price (£)</Label>
+                              <Input
+                                id={`price-est-${item.id}`}
+                                type="number"
+                                value={item.price}
+                                onChange={(e) => updateItemPrice(item.id, parseFloat(e.target.value) || 0)}
+                                className="w-24"
+                                step="0.01"
+                              />
+                            </div>
+                            <div className="text-right w-24">
                               <p className="font-semibold">{formatCurrency(item.total)}</p>
                             </div>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
+                            <Button
+                              variant="outline"
+                              size="icon"
                               onClick={() => removeEstimateItem(item.id)}
                             >
                               <Trash2 className="h-4 w-4" />
