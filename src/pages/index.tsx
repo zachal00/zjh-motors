@@ -388,6 +388,35 @@ export default function BusinessManagementApp() {
     clientId: 'YOUR_GOOGLE_CLIENT_ID',
     clientSecret: 'YOUR_GOOGLE_CLIENT_SECRET'
   });
+  const [motApiSettings, setMotApiSettings] = useState({
+    apiKey: "",
+  });
+  const [isSavingMotApiKey, setIsSavingMotApiKey] = useState(false);
+
+  const handleSaveMotApiKey = async () => {
+    setIsSavingMotApiKey(true);
+    try {
+      const response = await fetch('/api/settings/mot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ apiKey: motApiSettings.apiKey }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save MOT API key');
+      }
+
+      alert('MOT API Key saved successfully!');
+      setMotApiSettings({ apiKey: '' }); // Clear the input for security
+    } catch (error) {
+      console.error('Error saving MOT API key:', error);
+      alert('Error saving MOT API key. Please try again.');
+    } finally {
+      setIsSavingMotApiKey(false);
+    }
+  };
 
   // Invoice management states
   const [isInvoiceViewDialogOpen, setIsInvoiceViewDialogOpen] = useState(false);
@@ -7590,6 +7619,35 @@ export default function BusinessManagementApp() {
                       </ul>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>MOT API Settings</CardTitle>
+                  <CardDescription>Configure your MOT API key for vehicle lookups.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="mot-api-key">MOT API Key</Label>
+                    <Input
+                      id="mot-api-key"
+                      type="password"
+                      placeholder="Enter your MOT API Key"
+                      value={motApiSettings.apiKey}
+                      onChange={(e) => setMotApiSettings(prev => ({ ...prev, apiKey: e.target.value }))}
+                    />
+                  </div>
+                  <Button onClick={handleSaveMotApiKey} disabled={isSavingMotApiKey}>
+                    {isSavingMotApiKey ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save MOT API Key'
+                    )}
+                  </Button>
                 </CardContent>
               </Card>
             </div>
