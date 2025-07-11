@@ -392,6 +392,8 @@ export default function BusinessManagementApp() {
     apiKey: "",
     clientId: "",
     clientSecret: "",
+    scopeUrl: "",
+    tokenUrl: "",
   });
   const [isSavingMotApiKey, setIsSavingMotApiKey] = useState(false);
 
@@ -411,7 +413,7 @@ export default function BusinessManagementApp() {
       }
 
       alert('MOT API Settings saved successfully!');
-      setMotApiSettings({ apiKey: '', clientId: '', clientSecret: '' }); // Clear the inputs for security
+      setMotApiSettings({ apiKey: '', clientId: '', clientSecret: '', scopeUrl: '', tokenUrl: '' }); // Clear the inputs for security
     } catch (error) {
       console.error('Error saving MOT API settings:', error);
       alert('Error saving MOT API settings. Please try again.');
@@ -7658,6 +7660,24 @@ export default function BusinessManagementApp() {
                       placeholder="Enter your MOT Client Secret"
                       value={motApiSettings.clientSecret}
                       onChange={(e) => setMotApiSettings(prev => ({ ...prev, clientSecret: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="mot-scope-url">Scope URL</Label>
+                    <Input
+                      id="mot-scope-url"
+                      placeholder="Enter your Scope URL"
+                      value={motApiSettings.scopeUrl}
+                      onChange={(e) => setMotApiSettings(prev => ({ ...prev, scopeUrl: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="mot-token-url">Token URL</Label>
+                    <Input
+                      id="mot-token-url"
+                      placeholder="Enter your Token URL"
+                      value={motApiSettings.tokenUrl}
+                      onChange={(e) => setMotApiSettings(prev => ({ ...prev, tokenUrl: e.target.value }))}
                     />
                   </div>
                   <Button onClick={handleSaveMotApiKey} disabled={isSavingMotApiKey}>
