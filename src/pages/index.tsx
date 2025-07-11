@@ -390,6 +390,8 @@ export default function BusinessManagementApp() {
   });
   const [motApiSettings, setMotApiSettings] = useState({
     apiKey: "",
+    clientId: "",
+    clientSecret: "",
   });
   const [isSavingMotApiKey, setIsSavingMotApiKey] = useState(false);
 
@@ -401,18 +403,18 @@ export default function BusinessManagementApp() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ apiKey: motApiSettings.apiKey }),
+        body: JSON.stringify(motApiSettings),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save MOT API key');
+        throw new Error('Failed to save MOT API settings');
       }
 
-      alert('MOT API Key saved successfully!');
-      setMotApiSettings({ apiKey: '' }); // Clear the input for security
+      alert('MOT API Settings saved successfully!');
+      setMotApiSettings({ apiKey: '', clientId: '', clientSecret: '' }); // Clear the inputs for security
     } catch (error) {
-      console.error('Error saving MOT API key:', error);
-      alert('Error saving MOT API key. Please try again.');
+      console.error('Error saving MOT API settings:', error);
+      alert('Error saving MOT API settings. Please try again.');
     } finally {
       setIsSavingMotApiKey(false);
     }
@@ -7638,6 +7640,26 @@ export default function BusinessManagementApp() {
                       onChange={(e) => setMotApiSettings(prev => ({ ...prev, apiKey: e.target.value }))}
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="mot-client-id">MOT Client ID</Label>
+                    <Input
+                      id="mot-client-id"
+                      type="password"
+                      placeholder="Enter your MOT Client ID"
+                      value={motApiSettings.clientId}
+                      onChange={(e) => setMotApiSettings(prev => ({ ...prev, clientId: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="mot-client-secret">MOT Client Secret</Label>
+                    <Input
+                      id="mot-client-secret"
+                      type="password"
+                      placeholder="Enter your MOT Client Secret"
+                      value={motApiSettings.clientSecret}
+                      onChange={(e) => setMotApiSettings(prev => ({ ...prev, clientSecret: e.target.value }))}
+                    />
+                  </div>
                   <Button onClick={handleSaveMotApiKey} disabled={isSavingMotApiKey}>
                     {isSavingMotApiKey ? (
                       <>
@@ -7645,7 +7667,7 @@ export default function BusinessManagementApp() {
                         Saving...
                       </>
                     ) : (
-                      'Save MOT API Key'
+                      'Save MOT API Settings'
                     )}
                   </Button>
                 </CardContent>

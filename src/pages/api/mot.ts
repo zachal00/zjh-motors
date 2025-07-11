@@ -8,14 +8,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const apiKey = process.env.MOT_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'MOT API key is not configured' });
+  const clientId = process.env.MOT_CLIENT_ID;
+  const clientSecret = process.env.MOT_CLIENT_SECRET;
+
+  if (!apiKey || !clientId || !clientSecret) {
+    return res.status(500).json({ error: 'MOT API credentials are not fully configured' });
   }
 
   try {
     const response = await fetch(`https://beta.check-mot.service.gov.uk/trade/vehicles/mot-tests?registration=${registration}`, {
       headers: {
         'x-api-key': apiKey,
+        'x-client-id': clientId,
+        'x-client-secret': clientSecret,
         'Accept': 'application/json',
       },
     });
