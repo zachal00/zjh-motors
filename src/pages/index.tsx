@@ -164,6 +164,19 @@ interface ServiceCheck {
   technician: string;
 }
 
+interface MotTest {
+  completedDate: string;
+  testResult: string;
+  expiryDate?: string;
+  odometerValue: string;
+  odometerUnit: string;
+  motTestNumber: string;
+  rfrAndComments: {
+    text: string;
+    type: 'ADVISORY' | 'MINOR' | 'MAJOR' | 'DANGEROUS' | 'FAIL' | 'PRS';
+  }[];
+}
+
 // Mock data
 const mockCustomers: Customer[] = [
   {
@@ -1656,15 +1669,19 @@ export default function BusinessManagementApp() {
     });
     const [isLookingUpVehicle, setIsLookingUpVehicle] = useState(false);
     const [isAddVehicleDialogOpen, setIsAddVehicleDialogOpen] = useState(false);
+    const [motHistory, setMotHistory] = useState<MotTest[] | null>(null);
+    const [viewingVehicleMot, setViewingVehicleMot] = useState<MotTest[] | null>(null);
 
-    const handleVehicleLookup = async () => {
-      if (!newVehicle.registration) {
+    const handleVehicleLookup = async (registration?: string) => {
+      const reg = registration || newVehicle.registration;
+      if (!reg) {
         alert('Please enter a registration number.');
         return;
       }
       setIsLookingUpVehicle(true);
+      setMotHistory(null);
       try {
-        const response = await fetch(`/api/mot?registration=${newVehicle.registration}`);
+        const response = await fetch(`/api/mot?registration=${reg}`);
         if (!response.ok) {
           const errorData = await response.json();
           const errorMessage = errorData.details?.errors?.[0]?.detail || 'Failed to fetch vehicle data. Check the registration number.';
@@ -1673,16 +1690,21 @@ export default function BusinessManagementApp() {
         const data = await response.json();
         const vehicleData = data[0];
         if (vehicleData) {
-          setNewVehicle(prev => ({
-            ...prev,
-            make: vehicleData.make || '',
-            model: vehicleData.model || '',
-            year: vehicleData.firstUsedDate ? new Date(vehicleData.firstUsedDate).getFullYear().toString() : '',
-            color: vehicleData.primaryColour || '',
-            licensePlate: vehicleData.registration || prev.registration,
-            vin: vehicleData.vin || ''
-          }));
-          alert('Vehicle details populated successfully.');
+          if (registration) { // This is a lookup from the view dialog
+            setViewingVehicleMot(vehicleData.motTests || []);
+          } else { // This is from the add vehicle form
+            setNewVehicle(prev => ({
+              ...prev,
+              make: vehicleData.make || '',
+              model: vehicleData.model || '',
+              year: vehicleData.firstUsedDate ? new Date(vehicleData.firstUsedDate).getFullYear().toString() : '',
+              color: vehicleData.primaryColour || '',
+              licensePlate: vehicleData.registration || prev.registration,
+              vin: vehicleData.vin || ''
+            }));
+            setMotHistory(vehicleData.motTests || []);
+            alert('Vehicle details populated successfully.');
+          }
         } else {
           alert('No vehicle found for this registration number.');
         }
@@ -1693,6 +1715,10 @@ export default function BusinessManagementApp() {
         setIsLookingUpVehicle(false);
       }
     };
+
+    const handleLegacyVehicleLookup = async () => {
+      handleVehicleLookup();
+    }
 
     const handleAddVehicle = () => {
       if (!newVehicle.customerId || !newVehicle.make || !newVehicle.model || !newVehicle.year || !newVehicle.licensePlate) {
@@ -1752,7 +1778,7 @@ export default function BusinessManagementApp() {
                       onChange={(e) => setNewVehicle(prev => ({ ...prev, registration: e.target.value.toUpperCase() }))}
                     />
                   </div>
-                  <Button onClick={handleVehicleLookup} disabled={isLookingUpVehicle}>
+                  <Button onClick={handleLegacyVehicleLookup} disabled={isLookingUpVehicle}>
                     {isLookingUpVehicle ? (
                       <>
                         <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -2069,6 +2095,72 @@ export default function BusinessManagementApp() {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* MOT History */}
+                <Card>
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                      <CardTitle>MOT History</CardTitle>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleVehicleLookup(viewingVehicle?.licensePlate)}
+                        disabled={isLookingUpVehicle}
+                      >
+                        {isLookingUpVehicle ? 'Fetching...' : 'Fetch MOT History'}
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {viewingVehicleMot ? (
+                      viewingVehicleMot.length > 0 ? (
+                        (() => {
+                          const latestTest = viewingVehicleMot[0];
+                          const advisories = latestTest.rfrAndComments.filter(
+                            (rfr) => rfr.type === 'ADVISORY'
+                          );
+                          return (
+                            <div className="space-y-4">
+                              <div className="flex justify-between items-center p-3 bg-accent/20 rounded-lg">
+                                <div>
+                                  <p className="font-medium">Most Recent MOT</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Test Date: {format(new Date(latestTest.completedDate), "PPP")}
+                                  </p>
+                                  {latestTest.expiryDate && (
+                                    <p className="text-sm text-muted-foreground">
+                                      Expiry Date: {format(new Date(latestTest.expiryDate), "PPP")}
+                                    </p>
+                                  )}
+                                </div>
+                                <Badge variant={latestTest.testResult === 'PASSED' ? 'default' : 'destructive'}>
+                                  {latestTest.testResult}
+                                </Badge>
+                              </div>
+                              {advisories.length > 0 && (
+                                <div>
+                                  <h4 className="font-medium mb-2">Advisories:</h4>
+                                  <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
+                                    {advisories.map((advisory, index) => (
+                                      <li key={index}>{advisory.text}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {advisories.length === 0 && (
+                                <p className="text-sm text-muted-foreground">No advisories on the latest test.</p>
+                              )}
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <p className="text-muted-foreground text-center py-4">No MOT history found for this vehicle.</p>
+                      )
+                    ) : (
+                      <p className="text-muted-foreground text-center py-4">Click "Fetch MOT History" to view details.</p>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Service History */}
                 <Card>
