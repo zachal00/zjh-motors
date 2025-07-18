@@ -997,7 +997,7 @@ export default function AdminDashboard() {
           </Button>
         </div>
         
-        <ScrollArea className="h-[calc(100vh-20px)]"> {/* Adjusted height to ensure logout button is visible */}
+        <ScrollArea className="h-[calc(100vh-130px)]"> {/* Adjusted height to ensure logout button is visible */}
           <nav className="space-y-2 p-1">
             {sidebarItems.map((item) => {
               const Icon = item.icon;
