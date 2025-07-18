@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'standalone', // Ensures a Node.js server build for API routes
   typescript: {
     ignoreBuildErrors: true,
   },
