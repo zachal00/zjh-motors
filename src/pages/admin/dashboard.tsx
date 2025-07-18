@@ -964,7 +964,8 @@ export default function AdminDashboard() {
     { id: 'templates', label: 'Templates', icon: FileText },
     { id: 'website', label: 'Website', icon: Eye },
     { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'settings', label: 'Settings', icon: Settings }
+    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'logout', label: 'Logout', icon: LogOut, action: () => signOut({ callbackUrl: '/admin' }) }
   ];
 
   const stats = [
@@ -1005,8 +1006,12 @@ export default function AdminDashboard() {
                 variant={activeTab === item.id ? "default" : "ghost"}
                 className="w-full justify-start"
                 onClick={() => {
-                  setActiveTab(item.id);
-                  setSidebarOpen(false);
+                  if (item.action) {
+                    item.action();
+                  } else {
+                    setActiveTab(item.id);
+                    setSidebarOpen(false);
+                  }
                 }}
               >
                 <Icon className="mr-2 h-4 w-4" />
@@ -7869,10 +7874,6 @@ export default function AdminDashboard() {
               <div className="flex items-center space-x-4">
                 <Button variant="ghost" size="sm">
                   <Bell className="h-4 w-4" />
-                </Button>
-                <Button variant="default" size="sm" className="mr-2" onClick={() => signOut({ callbackUrl: '/admin' })}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
                 </Button>
                 <Avatar>
                   <AvatarFallback>JD</AvatarFallback>
