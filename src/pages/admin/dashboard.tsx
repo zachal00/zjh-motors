@@ -7836,7 +7836,7 @@ export default function AdminDashboard() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       
-      <div className="bg-background min-h-screen flex">
+      <div className="bg-background h-screen flex">
         {/* Mobile overlay */}
         <AnimatePresence>
           {sidebarOpen && (
@@ -7856,9 +7856,9 @@ export default function AdminDashboard() {
         </div>
 
         {/* Main content */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <header className="bg-card border-b border-border p-4">
+          <header className="bg-card border-b border-border p-4 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Button
@@ -7895,7 +7895,7 @@ export default function AdminDashboard() {
           </header>
 
           {/* Content */}
-          <main className="flex-1 p-6 overflow-auto">
+          <main className="flex-1 p-6 overflow-y-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={activeTab}
