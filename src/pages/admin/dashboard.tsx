@@ -61,6 +61,8 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import WebsiteContent from '../website';
+import { getSession } from 'next-auth/react';
+import { GetServerSidePropsContext } from 'next';
 
 // Types
 interface Customer {
@@ -7892,4 +7894,21 @@ export default function AdminDashboard() {
       </div>
     </>
   );
+}
+
+export async function getServerSideProps(context: GetServerSidePropsContext) {
+  const session = await getSession(context);
+
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/admin', // Redirect to the admin login page
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: { session }, // Pass the session to the page props
+  };
 }
