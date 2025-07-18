@@ -33,7 +33,8 @@ import {
   Star,
   CheckCircle,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  LogOut
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -61,7 +62,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import WebsiteContent from '../website';
-import { getSession } from 'next-auth/react';
+import { getSession, signOut } from 'next-auth/react';
 import { GetServerSidePropsContext } from 'next';
 
 // Types
@@ -7868,6 +7869,9 @@ export default function AdminDashboard() {
               <div className="flex items-center space-x-4">
                 <Button variant="ghost" size="sm">
                   <Bell className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: '/admin' })}>
+                  <LogOut className="h-4 w-4" />
                 </Button>
                 <Avatar>
                   <AvatarFallback>JD</AvatarFallback>
