@@ -7870,8 +7870,9 @@ export default function AdminDashboard() {
                 <Button variant="ghost" size="sm">
                   <Bell className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => signOut({ callbackUrl: '/admin' })}>
-                  <LogOut className="h-4 w-4" />
+                <Button variant="default" size="sm" className="mr-2" onClick={() => signOut({ callbackUrl: '/admin' })}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
                 </Button>
                 <Avatar>
                   <AvatarFallback>JD</AvatarFallback>
