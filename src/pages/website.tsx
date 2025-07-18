@@ -9,6 +9,7 @@ import {
   DollarSign,
   Clock,
   Star,
+  CheckCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
