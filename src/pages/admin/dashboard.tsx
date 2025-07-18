@@ -964,8 +964,7 @@ export default function AdminDashboard() {
     { id: 'templates', label: 'Templates', icon: FileText },
     { id: 'website', label: 'Website', icon: Eye },
     { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'logout', label: 'Logout', icon: LogOut, action: () => signOut({ callbackUrl: '/admin' }) }
+    { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
   const stats = [
@@ -982,9 +981,9 @@ export default function AdminDashboard() {
       initial={{ x: -300 }}
       animate={{ x: 0 }}
       exit={{ x: -300 }}
-      className="fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-50 lg:relative lg:translate-x-0"
+      className="fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-50 lg:relative lg:translate-x-0 flex flex-col"
     >
-      <div className="p-6">
+      <div className="p-6 pb-4">
         <div className="flex items-center justify-between mb-8">
           <Logo />
           <Button
@@ -996,32 +995,43 @@ export default function AdminDashboard() {
             <X className="h-4 w-4" />
           </Button>
         </div>
-        
-        <ScrollArea className="h-[calc(100vh-130px)]"> {/* Adjusted height to ensure logout button is visible */}
-          <nav className="space-y-2 p-1">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Button
-                  key={item.id}
-                  variant={activeTab === item.id ? "default" : "ghost"}
-                  className="w-full justify-start"
-                  onClick={() => {
-                    if (item.action) {
-                      item.action();
-                    } else {
-                      setActiveTab(item.id);
-                      setSidebarOpen(false);
-                    }
-                  }}
-                >
-                  <Icon className="mr-2 h-4 w-4" />
-                  {item.label}
-                </Button>
-              );
-            })}
-          </nav>
-        </ScrollArea>
+      </div>
+      
+      <ScrollArea className="flex-grow px-4">
+        <nav className="space-y-2 p-1">
+          {sidebarItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Button
+                key={item.id}
+                variant={activeTab === item.id ? "default" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => {
+                  if (item.action) {
+                    item.action();
+                  } else {
+                    setActiveTab(item.id);
+                    setSidebarOpen(false);
+                  }
+                }}
+              >
+                <Icon className="mr-2 h-4 w-4" />
+                {item.label}
+              </Button>
+            );
+          })}
+        </nav>
+      </ScrollArea>
+
+      <div className="p-6 mt-auto border-t border-border">
+        <Button
+          variant="ghost"
+          className="w-full justify-start"
+          onClick={() => signOut({ callbackUrl: '/admin' })}
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
       </div>
     </motion.div>
   );
