@@ -997,29 +997,31 @@ export default function AdminDashboard() {
           </Button>
         </div>
         
-        <nav className="space-y-2">
-          {sidebarItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Button
-                key={item.id}
-                variant={activeTab === item.id ? "default" : "ghost"}
-                className="w-full justify-start"
-                onClick={() => {
-                  if (item.action) {
-                    item.action();
-                  } else {
-                    setActiveTab(item.id);
-                    setSidebarOpen(false);
-                  }
-                }}
-              >
-                <Icon className="mr-2 h-4 w-4" />
-                {item.label}
-              </Button>
-            );
-          })}
-        </nav>
+        <ScrollArea className="h-[calc(100vh-20px)]"> {/* Adjusted height to ensure logout button is visible */}
+          <nav className="space-y-2 p-1">
+            {sidebarItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Button
+                  key={item.id}
+                  variant={activeTab === item.id ? "default" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => {
+                    if (item.action) {
+                      item.action();
+                    } else {
+                      setActiveTab(item.id);
+                      setSidebarOpen(false);
+                    }
+                  }}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  {item.label}
+                </Button>
+              );
+            })}
+          </nav>
+        </ScrollArea>
       </div>
     </motion.div>
   );
